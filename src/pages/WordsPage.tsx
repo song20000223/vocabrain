@@ -29,16 +29,39 @@ import {
 
 const POS_OPTIONS = ["n.", "v.", "adj.", "adv.", "prep.", "conj.", "pron.", "num.", "其他"];
 
-/** 单词行（弹窗和搜索结果共用） */
-function WordRow({ it, onChanged }: { it: WordItem; onChanged: () => void }) {
+/** 单词行（弹窗和搜索结果共用）；selecting 时显示勾选框 */
+function WordRow({
+  it,
+  onChanged,
+  selecting,
+  checked,
+  onToggle,
+}: {
+  it: WordItem;
+  onChanged: () => void;
+  selecting?: boolean;
+  checked?: boolean;
+  onToggle?: (id: string) => void;
+}) {
   return (
     <li
-      className={`glass-card rounded-2xl p-5 transition-opacity duration-300 ${
+      className={`glass-card rounded-2xl p-5 transition-all duration-300 ${
         it.excluded ? "opacity-45" : ""
-      }`}
+      } ${checked ? "!border-blue-300/40" : ""} ${selecting ? "cursor-pointer" : ""}`}
+      onClick={selecting ? () => onToggle?.(it.id) : undefined}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {selecting && (
+            <span
+              className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
+                checked ? "border-blue-300 bg-blue-400/30 text-blue-100" : "border-white/25 text-transparent"
+              }`}
+            >
+              <CircleCheck className="h-3.5 w-3.5" />
+            </span>
+          )}
+          <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-lg tracking-wide text-white">{it.word}</span>
             {it.excluded && (
@@ -59,32 +82,35 @@ function WordRow({ it, onChanged }: { it: WordItem; onChanged: () => void }) {
               <p className="text-white/25">（暂无释义，判分时由 AI 判断）</p>
             )}
           </div>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center">
-          <button
-            onClick={() => {
-              toggleExcluded(it.id);
-              onChanged();
-            }}
+        {!selecting && (
+          <div className="flex shrink-0 items-center">
+            <button
+              onClick={() => {
+                toggleExcluded(it.id);
+                onChanged();
+              }}
             aria-label={it.excluded ? "恢复测试" : "不再测"}
             title={it.excluded ? "恢复测试" : "不再测"}
             className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors duration-300 ${
               it.excluded ? "text-blue-300" : "text-white/25 hover:text-blue-200"
             }`}
           >
-            {it.excluded ? <CircleCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={() => {
-              removeWord(it.id);
-              onChanged();
-            }}
-            aria-label={`删除 ${it.word}`}
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
+              {it.excluded ? <CircleCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={() => {
+                removeWord(it.id);
+                onChanged();
+              }}
+              aria-label={`删除 ${it.word}`}
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
     </li>
   );
@@ -108,6 +134,9 @@ export default function WordsPage() {
   const [openBookId, setOpenBookId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameText, setRenameText] = useState("");
+  // 批量操作
+  const [selecting, setSelecting] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const refresh = () => {
     setWords(getWords());
@@ -176,6 +205,41 @@ export default function WordsPage() {
   const bookWordCount = (id: string) => words.filter((w) => w.bookId === id).length;
   const openBook = books.find((b) => b.id === openBookId) ?? null;
   const openBookWords = openBookId ? words.filter((w) => w.bookId === openBookId) : [];
+
+  // ---------- 批量操作 ----------
+  const toggleCheck = (id: string) => {
+    setCheckedIds((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const exitSelecting = () => {
+    setSelecting(false);
+    setCheckedIds(new Set());
+  };
+  const allChecked =
+    openBookWords.length > 0 && openBookWords.every((w) => checkedIds.has(w.id));
+
+  const batchDelete = () => {
+    if (checkedIds.size === 0) return;
+    if (!window.confirm(`确定删除选中的 ${checkedIds.size} 个单词？此操作不可恢复。`)) return;
+    for (const id of checkedIds) removeWord(id);
+    showTip(`已删除 ${checkedIds.size} 个单词`);
+    exitSelecting();
+    refresh();
+  };
+  const batchExclude = (exclude: boolean) => {
+    if (checkedIds.size === 0) return;
+    for (const id of checkedIds) {
+      const w = words.find((it) => it.id === id);
+      if (w && w.excluded !== exclude) toggleExcluded(id);
+    }
+    showTip(exclude ? `已将 ${checkedIds.size} 个单词设为不再测` : `已恢复 ${checkedIds.size} 个单词`);
+    exitSelecting();
+    refresh();
+  };
 
   const bookName = (id: string) => books.find((b) => b.id === id)?.name ?? "默认词书";
 
@@ -373,6 +437,7 @@ export default function WordsPage() {
                       setOpenBookId(b.id);
                       setRenaming(false);
                       setRenameText(b.name);
+                      exitSelecting();
                     }}
                     className="glass-card group flex w-full items-center gap-4 rounded-2xl p-5 text-left transition-all duration-300 hover:border-blue-300/25"
                   >
@@ -402,7 +467,10 @@ export default function WordsPage() {
       {openBook && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6"
-          onClick={() => setOpenBookId(null)}
+          onClick={() => {
+            setOpenBookId(null);
+            exitSelecting();
+          }}
         >
           <div
             className="glass-card flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-3xl p-6 sm:rounded-3xl"
@@ -456,14 +524,68 @@ export default function WordsPage() {
                   {openBookWords.length} 个单词
                 </p>
               </div>
+              {openBookWords.length > 0 && (
+                <button
+                  onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
+                  className={`ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide ${
+                    selecting ? "!border-blue-300/40 !text-blue-200" : ""
+                  }`}
+                >
+                  {selecting ? "取消多选" : "多选"}
+                </button>
+              )}
               <button
-                onClick={() => setOpenBookId(null)}
+                onClick={() => {
+                  setOpenBookId(null);
+                  exitSelecting();
+                }}
                 aria-label="关闭"
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-white/40 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* 批量操作工具条 */}
+            {selecting && openBookWords.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-blue-300/20 bg-blue-400/5 px-4 py-2.5">
+                <button
+                  onClick={() =>
+                    allChecked
+                      ? setCheckedIds(new Set())
+                      : setCheckedIds(new Set(openBookWords.map((w) => w.id)))
+                  }
+                  className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200"
+                >
+                  {allChecked ? "取消全选" : "全选"}
+                </button>
+                <span className="font-mono text-xs tracking-wide text-white/40">
+                  已选 {checkedIds.size} 个
+                </span>
+                <span className="flex-1" />
+                <button
+                  onClick={() => batchExclude(true)}
+                  disabled={checkedIds.size === 0}
+                  className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"
+                >
+                  不再测
+                </button>
+                <button
+                  onClick={() => batchExclude(false)}
+                  disabled={checkedIds.size === 0}
+                  className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"
+                >
+                  恢复测试
+                </button>
+                <button
+                  onClick={batchDelete}
+                  disabled={checkedIds.size === 0}
+                  className="min-h-[36px] rounded-full border border-red-300/25 px-4 text-xs tracking-wide text-red-200/80 transition-colors hover:border-red-300/50 hover:text-red-200 disabled:opacity-30"
+                >
+                  <Trash2 className="mr-1 inline h-3.5 w-3.5" /> 删除
+                </button>
+              </div>
+            )}
 
             <div className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
               {openBookWords.length === 0 ? (
@@ -473,7 +595,14 @@ export default function WordsPage() {
               ) : (
                 <ul className="flex flex-col gap-3">
                   {openBookWords.map((it) => (
-                    <WordRow key={it.id} it={it} onChanged={refresh} />
+                    <WordRow
+                      key={it.id}
+                      it={it}
+                      onChanged={refresh}
+                      selecting={selecting}
+                      checked={checkedIds.has(it.id)}
+                      onToggle={toggleCheck}
+                    />
                   ))}
                 </ul>
               )}
