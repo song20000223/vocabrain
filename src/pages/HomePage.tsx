@@ -5,6 +5,28 @@ import { getWords, getWrongBook } from "@/lib/store";
 
 const SLOGANS = ["Every drop counts.", "Rain falls. Words stay.", "一词一雨，积水成渊。"];
 
+/** 数字滚动：从 0 滚到目标值（缓出，约 0.9s） */
+function CountUp({ value }: { value: number }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (value <= 0) {
+      setN(0);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const dur = 900;
+    const step = (t: number) => {
+      const p = Math.min((t - start) / dur, 1);
+      setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{n}</>;
+}
+
 export default function HomePage() {
   const [wordCount, setWordCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
@@ -94,14 +116,14 @@ export default function HomePage() {
         {/* 数据 */}
         <div className="mt-10 flex items-center justify-center gap-10 font-mono">
           <div className="text-center">
-            <div className="text-4xl font-light text-white">{wordCount}</div>
+            <div className="text-4xl font-light text-white"><CountUp value={wordCount} /></div>
             <div className="mt-1 text-[11px] uppercase tracking-[0.08em] text-white/35">
               词库
             </div>
           </div>
           <span className="h-10 w-px bg-white/10" />
           <div className="text-center">
-            <div className="text-4xl font-light text-blue-200">{wrongCount}</div>
+            <div className="text-4xl font-light text-blue-200"><CountUp value={wrongCount} /></div>
             <div className="mt-1 text-[11px] uppercase tracking-[0.08em] text-white/35">
               待复习错题
             </div>

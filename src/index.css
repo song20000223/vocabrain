@@ -2,6 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- 细节打磨：滚动条 / 焦点态 / 选中色 ---------- */
+
+/* 隐藏滚动条但保留滚动功能 */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+*::-webkit-scrollbar { display: none; }
+
+/* 键盘焦点：蓝色辉光取代浏览器默认虚线（鼠标点击不触发） */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #05070a, 0 0 0 4px rgba(147,197,253,0.55), 0 0 18px rgba(96,165,250,0.35);
+  border-radius: 6px;
+}
+
+/* 文本选中色：蓝调，呼应全局 */
+::selection { background: rgba(96,165,250,0.35); color: #fff; }
+
+/* ---------- 答对：字符逐个点亮（雨滴溅开） ---------- */
+@keyframes char-glow {
+  0%   { opacity: 0; transform: translateY(6px); text-shadow: none; }
+  55%  { opacity: 1; text-shadow: 0 0 18px rgba(191,219,254,0.9); }
+  100% { opacity: 1; transform: translateY(0); text-shadow: 0 0 8px rgba(147,197,253,0.35); }
+}
+.char-glow {
+  display: inline-block;
+  opacity: 0;
+  animation: char-glow 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+/* ---------- 轮次庆功浮层 ---------- */
+@keyframes round-flash-in {
+  0%   { opacity: 0; filter: blur(14px); transform: scale(1.06); }
+  60%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.round-flash {
+  animation: round-flash-in 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
 @font-face {
   font-family: 'GeistMono';
   src: url('/node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2') format('woff2');
@@ -158,6 +200,29 @@
     border: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 8px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
   }
+
+  /* 磁吸涟漪：光晕从鼠标进入点扩散（JS 写入 --ripple-x/y） */
+  .glow-btn, .ghost-btn { position: relative; overflow: hidden; }
+  .glow-btn::before, .ghost-btn::before {
+    content: "";
+    position: absolute;
+    left: var(--ripple-x, 50%);
+    top: var(--ripple-y, 50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: radial-gradient(circle, rgba(191,219,254,0.35), rgba(96,165,250,0.12) 60%, transparent 70%);
+    transition: transform 0.35s ease-in-out, opacity 0.35s ease-in-out;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-btn.rippling::before, .ghost-btn.rippling::before {
+    transform: translate(-50%, -50%) scale(22);
+    opacity: 1;
+  }
+  .glow-btn > *, .ghost-btn > * { position: relative; z-index: 1; }
 
   /* 微光胶囊按钮 */
   .glow-btn {

@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { useMagneticRipple } from "./lib/ripple";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import TestPage from "./pages/TestPage";
@@ -6,6 +7,7 @@ import WrongBookPage from "./pages/WrongBookPage";
 import WordsPage from "./pages/WordsPage";
 
 export default function App() {
+  useMagneticRipple();
   return (
     <Routes>
       <Route element={<Layout />}>

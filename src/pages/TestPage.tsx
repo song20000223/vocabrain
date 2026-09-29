@@ -19,6 +19,8 @@ type Mode = "all" | "pick";
 export default function TestPage() {
   const [words, setWords] = useState<WordItem[]>([]);
   const [stats, setStats] = useState(() => roundStats("en2zh"));
+  // 轮次庆功浮层：记录刚完成的轮次号，null 表示不显示
+  const [roundFlash, setRoundFlash] = useState<number | null>(null);
 
   // 设置面板状态
   const [mode, setMode] = useState<Mode>("all");
@@ -109,6 +111,13 @@ export default function TestPage() {
         onJudged={handleJudged}
         onFinish={() => {
           celebrateRain();
+          // 全库模式且恰好测满一轮 → 庆功浮层
+          const s = roundStats(direction);
+          if (mode === "all" && s.total > 0 && s.tested >= s.total) {
+            setRoundFlash(s.round);
+            window.setTimeout(() => setRoundFlash(null), 2200);
+          }
+          setStats(roundStats(direction));
           setQueue(null);
         }}
       />
@@ -138,6 +147,22 @@ export default function TestPage() {
         <p className="eyebrow">Test Setup</p>
         <h1 className="hero-title mt-3 text-4xl sm:text-5xl">单词测试</h1>
       </div>
+
+      {/* 轮次庆功浮层：大号衬线数字从模糊到清晰定格 */}
+      {roundFlash !== null && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+          <div className="round-flash text-center">
+            <p className="eyebrow !text-blue-200/70">Round Complete</p>
+            <p
+              className="hero-title mt-4 text-7xl sm:text-8xl"
+              style={{ textShadow: "0 0 40px rgba(147,197,253,0.4)" }}
+            >
+              第 {roundFlash} 轮
+            </p>
+            <p className="mt-4 font-mono text-sm tracking-[0.25em] text-white/50">完成 · COMPLETE</p>
+          </div>
+        </div>
+      )}
 
       {/* 本轮进度 */}
       <div className="glass-card rounded-2xl p-5">

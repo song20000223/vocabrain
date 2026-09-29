@@ -38,6 +38,19 @@ export function celebrateRain() {
   el.classList.add("rain-celebrate");
 }
 
+/** 答对时字符逐个点亮：每个字依次浮现微光，像雨滴落地溅开 */
+function GlowText({ text, offset = 0 }: { text: string; offset?: number }) {
+  return (
+    <>
+      {Array.from(text).map((ch, i) => (
+        <span key={i} className="char-glow" style={{ animationDelay: `${(offset + i) * 45}ms` }}>
+          {ch === " " ? " " : ch}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /**
  * 通用答题流程。
  *
@@ -289,7 +302,7 @@ export default function QuizSession({
         </div>
       )}
 
-      {/* 判定结果（答对涟漪 / 答错抖动） */}
+      {/* 判定结果（答对涟漪+字符逐个点亮 / 答错抖动） */}
       {result && (
         <div
           className={`glass-card result-in rounded-2xl p-6 ${
@@ -317,15 +330,19 @@ export default function QuizSession({
               {isReverse ? "正确单词　" : "标准释义　"}
             </span>
             {isReverse ? (
-              <span className="font-mono text-base text-white">{current.word}</span>
+              <span className="font-mono text-base text-white">
+                {result.correct ? <GlowText text={current.word} /> : current.word}
+              </span>
             ) : customMeanings.length > 0 ? (
               <span className="mt-1 block space-y-0.5">
                 {customMeanings.map((line, i) => (
                   <span key={i} className="block">
-                    {line}
+                    {result.correct ? <GlowText text={line} offset={i * 8} /> : line}
                   </span>
                 ))}
               </span>
+            ) : result.correct ? (
+              <GlowText text={result.standardMeaning} />
             ) : (
               result.standardMeaning
             )}
