@@ -116,10 +116,10 @@ export default function TestPage() {
   if (testable.length === 0) {
     return (
       <div className="flex flex-col items-center gap-5 pt-24 text-center">
-        <p className="tracking-wider text-white/45">
+        <p className="tracking-wide text-white/45">
           {words.length === 0 ? "词库是空的，先去添加一些单词吧。" : "所有单词都被标记为「不再测」了。"}
         </p>
-        <Link to="/words" className="glow-btn min-h-[44px] rounded-full px-8 text-sm tracking-wider">
+        <Link to="/words" className="glow-btn min-h-[44px] rounded-full px-8 text-sm tracking-wide">
           去单词管理
         </Link>
       </div>
@@ -138,14 +138,14 @@ export default function TestPage() {
       {/* 本轮进度 */}
       <div className="glass-card rounded-2xl p-5">
         <div className="flex items-center justify-between text-sm">
-          <span className="tracking-wider text-white/45">
+          <span className="tracking-wide text-white/45">
             第 {stats.round} 轮 · 已测 <span className="text-blue-200">{stats.tested}</span> / {stats.total}
           </span>
           <button
             onClick={() => {
               if (window.confirm("重置全部测试进度，从第 1 轮重新开始？")) resetProgress();
             }}
-            className="flex min-h-[36px] items-center gap-1.5 text-xs tracking-wider text-white/35 transition-colors hover:text-white"
+            className="flex min-h-[36px] items-center gap-1.5 text-xs tracking-wide text-white/35 transition-colors hover:text-white"
           >
             <RotateCcw className="h-3.5 w-3.5" /> 重置进度
           </button>
@@ -179,7 +179,7 @@ export default function TestPage() {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setMode("all")}
-            className={`min-h-[56px] rounded-xl border text-sm tracking-wider transition-all duration-300 ${
+            className={`min-h-[56px] rounded-xl border text-sm tracking-wide transition-all duration-300 ${
               mode === "all"
                 ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
                 : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
@@ -189,7 +189,7 @@ export default function TestPage() {
           </button>
           <button
             onClick={() => setMode("pick")}
-            className={`min-h-[56px] rounded-xl border text-sm tracking-wider transition-all duration-300 ${
+            className={`min-h-[56px] rounded-xl border text-sm tracking-wide transition-all duration-300 ${
               mode === "pick"
                 ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
                 : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
@@ -201,7 +201,7 @@ export default function TestPage() {
 
         {mode === "all" ? (
           <div className="mt-5">
-            <label className="text-sm tracking-wider text-white/45">
+            <label className="text-sm tracking-wide text-white/45">
               本次测试数量 <span className="text-white/25">（转动选择，1 – {Math.max(testable.length, 100)} 题）</span>
             </label>
             <div className="mt-2">
@@ -213,7 +213,7 @@ export default function TestPage() {
                 unit="题"
               />
             </div>
-            <p className="mt-3 text-xs leading-relaxed tracking-wider text-white/30">
+            <p className="mt-3 text-xs leading-relaxed tracking-wide text-white/30">
               优先抽本轮没测过的单词；全部测过一遍后自动开启新一轮。数量超过词库总量时会循环抽词。
             </p>
           </div>
@@ -221,7 +221,7 @@ export default function TestPage() {
           <div className="mt-5">
             <button
               onClick={() => setPickerOpen(true)}
-              className="glass-input flex min-h-[48px] w-full items-center justify-between rounded-xl px-4 text-sm tracking-wider"
+              className="glass-input flex min-h-[48px] w-full items-center justify-between rounded-xl px-4 text-sm tracking-wide"
             >
               <span className={selected.size ? "text-white" : "text-white/35"}>
                 {selected.size ? `已选 ${selected.size} 个单词` : "点击选择单词…"}
@@ -234,7 +234,7 @@ export default function TestPage() {
         <button
           onClick={mode === "all" ? startAll : startPicked}
           disabled={mode === "pick" && selected.size === 0}
-          className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.25em]"
+          className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.08em]"
         >
           <Play className="h-4 w-4" /> 开始测试
         </button>
@@ -248,7 +248,7 @@ export default function TestPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold tracking-wider text-white">选择单词（{selected.size} / {testable.length}）</h2>
+              <h2 className="font-semibold tracking-wide text-white">选择单词（{selected.size} / {testable.length}）</h2>
               <button onClick={() => setPickerOpen(false)} className="min-h-[36px] px-3 text-sm text-white/45 hover:text-white">
                 完成
               </button>
@@ -256,8 +256,8 @@ export default function TestPage() {
 
             {/* 快捷选择 */}
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button onClick={selectAll} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wider">全选</button>
-              <button onClick={selectNone} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wider">全不选</button>
+              <button onClick={selectAll} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide">全选</button>
+              <button onClick={selectNone} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide">全不选</button>
               <div className="flex items-center gap-2">
                 <input
                   value={rangeText}
@@ -265,7 +265,7 @@ export default function TestPage() {
                   placeholder="如 1-100"
                   className="glass-input min-h-[36px] w-24 rounded-lg px-3 font-mono text-xs"
                 />
-                <button onClick={applyRange} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wider">
+                <button onClick={applyRange} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide">
                   按序号选
                 </button>
               </div>
@@ -302,7 +302,7 @@ export default function TestPage() {
             <button
               onClick={startPicked}
               disabled={selected.size === 0}
-              className="glow-btn mt-4 min-h-[48px] w-full rounded-full text-sm tracking-[0.2em]"
+              className="glow-btn mt-4 min-h-[48px] w-full rounded-full text-sm tracking-[0.06em]"
             >
               开始测试（{selected.size} 个）
             </button>

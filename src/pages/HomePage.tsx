@@ -85,7 +85,7 @@ export default function HomePage() {
           把单词记进脑子
         </h1>
         {/* 打字机 slogan */}
-        <p className="mt-5 h-6 font-mono text-sm tracking-[0.25em] text-blue-200/70">
+        <p className="mt-5 h-6 font-mono text-sm tracking-[0.08em] text-blue-200/70">
           {typed}
           <span className="typewriter-caret ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-blue-300" />
         </p>
@@ -95,14 +95,14 @@ export default function HomePage() {
         <div className="mt-10 flex items-center justify-center gap-10 font-mono">
           <div className="text-center">
             <div className="text-4xl font-light text-white">{wordCount}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-white/35">
+            <div className="mt-1 text-[11px] uppercase tracking-[0.08em] text-white/35">
               词库
             </div>
           </div>
           <span className="h-10 w-px bg-white/10" />
           <div className="text-center">
             <div className="text-4xl font-light text-blue-200">{wrongCount}</div>
-            <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-white/35">
+            <div className="mt-1 text-[11px] uppercase tracking-[0.08em] text-white/35">
               待复习错题
             </div>
           </div>
@@ -110,7 +110,7 @@ export default function HomePage() {
 
         <Link
           to="/test"
-          className="glow-btn mt-12 min-h-[52px] rounded-full px-10 text-sm tracking-[0.2em]"
+          className="glow-btn mt-12 min-h-[52px] rounded-full px-10 text-sm tracking-[0.06em]"
         >
           开始测试 <ArrowRight className="h-4 w-4" />
         </Link>
@@ -128,14 +128,14 @@ export default function HomePage() {
             <h2 className="mt-4 text-lg font-semibold tracking-wide text-white transition-colors duration-500 group-hover:text-blue-100">
               {title}
             </h2>
-            <p className="mt-2 text-[13px] leading-relaxed tracking-wider text-white/40">
+            <p className="mt-2 text-[13px] leading-relaxed tracking-wide text-white/40">
               {desc}
             </p>
           </Link>
         ))}
       </section>
 
-      <p className="text-center font-mono text-[11px] tracking-[0.2em] text-white/25">
+      <p className="text-center font-mono text-[11px] tracking-[0.06em] text-white/25">
         词库与错题本保存在浏览器 localStorage · 仅当前浏览器可见 · 清除浏览器数据会丢失
       </p>
     </div>

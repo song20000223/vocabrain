@@ -36,16 +36,20 @@
 
   body {
     @apply bg-[#0a0a0a] text-white;
-    font-family: 'Inter', sans-serif;
-    font-weight: 200;
+    /* 英文 Inter + 中文 Noto Sans SC，常规字重（200 太瘦显生硬） */
+    font-family: 'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.65;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'EB Garamond', serif;
-    font-weight: 400;
+    font-family: 'Inter', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -206,13 +210,25 @@
     box-shadow: 0 0 16px rgba(96,165,250,0.15);
   }
 
-  /* 超大电影感标题：900 字重、紧凑字距、纯白，渐隐到底部 */
+  /* 超大电影感标题：英文紧凑 Inter 900，中文用 Noto Serif SC 衬线提升质感 */
   .hero-title {
-    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-family: 'Inter', 'Noto Serif SC', 'Songti SC', serif;
     font-weight: 900;
-    letter-spacing: -0.03em;
-    line-height: 1.02;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
     background: linear-gradient(180deg, #ffffff 55%, rgba(255,255,255,0.35));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* 纯英文单词展示（测试页单词卡）：紧凑无衬线 */
+  .word-display {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    background: linear-gradient(180deg, #ffffff 60%, rgba(255,255,255,0.4));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

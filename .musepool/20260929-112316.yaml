@@ -1,0 +1,109 @@
+items:
+- short_id: KoiVtgoZ
+  seed: |
+    # Narrative
+
+    A Chinese Sichuan restaurant homepage presenting a surreal, dreamlike digital garden. The narrative centers on an immersive full-screen video hero featuring 3D Chinese calligraphy floating over a fantastical landscape with mountains, grass, and chromatic bubbles. The experience prioritizes atmosphere over information density — visitors are greeted by motion and color before text. Navigation offers bilingual paths (English/Chinese) for About, Menu, Gift Cards, Loyalty, Order, Reserve, Catering, and Parties.
+
+    # Tech Stack
+
+    SolidJS reactive framework with CSS Modules for scoped styling. Video playback managed through custom hooks handling intro-to-loop sequencing. CSS custom properties drive theming. No external animation libraries detected — motion implemented via CSS keyframes and transitions.
+
+    # Layout
+
+    Full-bleed viewport-locked hero with video background covering 100% width/height. Navigation bar floats fixed at top with split layout: left cluster (About, Menu, Gift, Loyalty), center logo, right cluster (Order, Reserve, Cater, Parties). Content overlays video with absolute positioning. Bottom-right corner hosts a floating rounded thumbnail button. Single-column narrative flow below fold.
+
+    # Typography
+
+    Dual-font system pairing ABC Helveesti (geometric sans-serif, weights 400/500) with Chinese typefaces FZ Hei (simplified Chinese body) and ZhuZi GuDian (calligraphic display). Navigation uses uppercase English with Chinese subtitles stacked below. Hero calligraphy appears as 3D-rendered imagery rather than live text. Text color: `#c00000` (dark red) against pale peach backgrounds.
+
+    # Color
+
+    Warm gradient palette transitioning vertically: peach `#ffb57d` at top → sky blue `#5281c3` → deep blue `#144da1` at bottom. Accent colors: dark red `#c00000` for text/UI, bright red `#f1001e` for CTAs, coral `#ff8f5f` and yellow `#ffe71e` for highlights. Background default: `var(--color-palePeach)` with `var(--color-darkRed)` text.
+
+    # Imagery
+
+    Full-screen video background (landscape orientation, intro + loop sequence) showing surreal 3D landscape: rolling pink mountains, green grass, floating iridescent bubbles, and giant red Chinese calligraphy characters suspended in space. Video transitions from intro clip to seamless loop at specified timestamp. Bottom-right floating button contains circular thumbnail image.
+
+    # Components
+
+    Square border buttons (`7.5rem` × `7.5rem`, `3.5px` solid border, `1rem` radius) with centered icons/text. Fixed navigation with transparent background over video. Background shadow component creates gradient fade overlays using mask-image for content transitions. Video container handles dual-source playback (intro + loop) with crossfade animation (`3s ease`).
+
+    # Motion
+
+    Video-driven ambient motion from background footage. UI transitions use `cubic-bezier(0.22, 1, 0.36, 1)` easing (smooth deceleration). Background color transitions animate over `0.8s` to `1s`. Mask-image wipe animation (`wipe-out` keyframe) creates horizontal reveal effects using linear-gradient masks. Video crossfade on loop transition.
+
+    # Algorithms
+
+    Standard implementation, no special design.
+
+    # Material
+
+    Standard implementation, no special design.
+
+    # Craft
+
+    Background shadow component uses pseudo-elements with calculated gradient masks for smooth content fade-ins. CSS custom properties enable runtime theme switching. Video playback orchestration handles canplaythrough, timeupdate, and ended events for seamless intro-to-loop handoff. Border buttons use `transform: translateZ(0)` for GPU acceleration.
+
+    # Coherence
+
+    The surreal video aesthetic — floating calligraphy, dreamlike landscape, chromatic bubbles — establishes an otherworldly brand personality distinct from typical restaurant sites. The warm gradient palette and red typography reinforce Sichuan spice associations while maintaining playful, contemporary energy. Solid technical implementation prioritizes smooth video playback and fluid transitions over heavy UI chrome.
+- short_id: RFCCt97o
+  seed: |
+    # Narrative
+
+    A luxury lifestyle brand e-commerce site showcasing Asian craft traditions merged with contemporary design. The narrative flows from a cinematic full-screen video hero (showing a red lacquer box on marble) through collection categories for various product lines and services. Each category uses a split-screen image+text pattern followed by a 4-column product grid. The visual language emphasizes materiality, heritage, and quiet sophistication.
+
+    # Tech Stack
+
+    Shopify custom theme. Tailwind CSS utility classes mixed with custom CSS. Flickity carousel for product grids. Vanilla JS for slideout navigation and predictive search. CSS custom properties for theming with three color schemes.
+
+    # Layout
+
+    Full-bleed video hero (900px desktop, 600px mobile) with centered logo overlay. Alternating split-screen sections (50/50 image+text) with vertically centered content. Product grids use 4-column layout (2-column mobile) with consistent 100% aspect ratio square images. Generous section padding (100px) and modular spacing system using CSS variables (--space-1 to --space-12). Sticky header with transparent-to-solid transition on scroll.
+
+    # Typography
+
+    Dual font system: Inter (400, 700 weights) for UI and body text, Proza Libre (500 weight) for accent moments. Heading hierarchy: h1 at 48px, h2 at 28px/32px, body at 15px. Letter-spacing tuned for luxury feel: headings at 2px, body at 0.5px. Navigation text uses uppercase transform. Chinese/English bilingual support with Noto Sans CJK SC as fallback.
+
+    # Color
+
+    Warm earth-tone palette centered on #eeece7 (warm off-white background) and #687886 (muted blue-gray accent). Three scheme system: Scheme 1 (#eeece7 bg, #292929 text), Scheme 2 (#d8d2cb bg, #222222 text), Scheme 3 (#687886 bg, #FFFFFF text). Button fill uses #687886 with #98a3ac hover. Metal swatch system for products: gold (#f1ca8b), rose-gold (#e2a79f), silver (#d5d7d8), platinum (#757575), copper (#bd6f2c).
+
+    # Imagery
+
+    High-resolution product photography with consistent 1:1 square aspect ratio. Hero video shows tactile product detail (red lacquer texture on marble). Split-screen section images use background-size: cover with 50% 50% positioning. Product cards feature dual-image hover swap (primary image + hidden hover image). No visible price display—focus on craft narrative over commerce.
+
+    # Components
+
+    **Buttons**: `btn-border-link` class creates animated border effect using four pseudo-elements (::before, ::after on both link and span) that draw borders on hover. Border weight 1px, no border-radius.
+
+    **Product cards**: Square aspect ratio wrapper with hidden secondary image revealed on hover. Centered product titles below images, no prices shown.
+
+    **Navigation**: Hamburger-triggered slideout panel from top with accordion-style mobile menu. Language switcher as bilingual text toggle between Chinese and English.
+
+    **Header**: Minimal inline layout with logo centered, hamburger+"Menu" text left, language toggle right. Transparent overlay state on hero with white text, transitions to solid #eeece7 background on scroll.
+
+    # Motion
+
+    Text entrance animations using `animate--text` class with staggered delays (delay--1, delay--2). Animation timing: 0.6s duration with ease-out easing. Slideout panels use transform transitions. Product image hover: opacity crossfade between primary and secondary images. No parallax or scroll-driven effects—motion is restrained and purposeful.
+
+    # Algorithms
+
+    Standard implementation, no special design.
+
+    # Material
+
+    Surface texture implied through photography (marble, lacquer, wood grain) rather than digital effects. No glassmorphism, noise, or synthetic textures. Clean matte surfaces throughout.
+
+    # Craft
+
+    Zero border-radius on buttons and inputs creates sharp, architectural feel. Custom focus states using dashed #9E9E9E outline. Section spacing consistent at 100px vertical padding. Metal swatches show karat labels (10kt, 14kt, 18kt, 22kt, 24kt) as centered text overlays. Logo SVG uses precise path geometry with evenodd fill-rule.
+
+    # Coherence
+
+    The warm muted palette, generous whitespace, and absence of prices create a gallery-like browsing experience appropriate for luxury craft objects. The split-screen rhythm establishes predictable pacing while the consistent square image format unifies disparate product types. Typography remains restrained—Inter's neutrality lets product photography carry visual interest.
+
+<system-reminder>
+The risk is not borrowing too little — it is subconsciously simplifying what you borrowed. Cutting corners is forbidden in any form: never replace a reference's technique, material, structure, or motion with a cheaper version of your own. Downgrades follow repeatable patterns (illustrative, not exhaustive): input-driven motion (scroll/pointer/time) → one-shot keyframes or static states; shape-language transformation (morph/clip/mask) → the cheapest properties (scale/translate/opacity); asymmetric layout rhythm (irregular grids, editorial composition) → uniform columns and full-width stacks; layered material (blend/texture/depth) → flat single-layer fills; bespoke vessels (framing devices, illustrated components) → default cards and pills; choreographed sequences (staged, multi-step, gated) → single triggers or fakes; typographic systems (pairing/scale/font features) → swapping the font-family; styled components → library-default skins. If your version is simpler than the reference's, that is a downgrade. Implement at the reference's fidelity.
+</system-reminder>

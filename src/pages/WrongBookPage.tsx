@@ -113,7 +113,7 @@ export default function WrongBookPage() {
         <div>
           <p className="eyebrow">Review</p>
           <h1 className="hero-title mt-3 text-4xl sm:text-5xl">错题本</h1>
-          <p className="mt-3 text-sm tracking-wider text-white/40">
+          <p className="mt-3 text-sm tracking-wide text-white/40">
             共 {items.length} 个答错的单词 · 保存在本浏览器 localStorage
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function WrongBookPage() {
                 refresh();
               }
             }}
-            className="ghost-btn min-h-[44px] shrink-0 px-5 text-sm tracking-wider hover:!border-red-400/40 hover:!text-red-300"
+            className="ghost-btn min-h-[44px] shrink-0 px-5 text-sm tracking-wide hover:!border-red-400/40 hover:!text-red-300"
           >
             <Eraser className="h-4 w-4" /> 清空
           </button>
@@ -135,14 +135,14 @@ export default function WrongBookPage() {
       {/* 复习完成总结 */}
       {summary && (
         <div className="glass-card rounded-2xl p-6" style={{ borderColor: "rgba(147,197,253,0.3)" }}>
-          <p className="font-medium tracking-wider text-blue-100">本轮复习完成</p>
-          <p className="mt-2 text-sm tracking-wider text-white/55">
+          <p className="font-medium tracking-wide text-blue-100">本轮复习完成</p>
+          <p className="mt-2 text-sm tracking-wide text-white/55">
             订正 <span className="text-emerald-300">{summary.corrected}</span> 题 ·
             仍未掌握 <span className="text-red-300">{summary.stillWrong}</span> 题
           </p>
           <button
             onClick={() => setSummary(null)}
-            className="ghost-btn mt-4 min-h-[40px] px-5 text-xs tracking-wider"
+            className="ghost-btn mt-4 min-h-[40px] px-5 text-xs tracking-wide"
           >
             知道了
           </button>
@@ -154,8 +154,8 @@ export default function WrongBookPage() {
         <div className="glass-card rounded-2xl p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="font-semibold tracking-wider text-white">复习错题</h2>
-              <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-2 text-sm tracking-wider text-white/45">
+              <h2 className="font-semibold tracking-wide text-white">复习错题</h2>
+              <label className="mt-2 flex min-h-[44px] cursor-pointer items-center gap-2 text-sm tracking-wide text-white/45">
                 <input
                   type="checkbox"
                   checked={autoRemove}
@@ -167,7 +167,7 @@ export default function WrongBookPage() {
             </div>
             <button
               onClick={startReview}
-              className="glow-btn min-h-[48px] shrink-0 rounded-full px-8 text-sm tracking-[0.2em]"
+              className="glow-btn min-h-[48px] shrink-0 rounded-full px-8 text-sm tracking-[0.06em]"
             >
               <Play className="h-4 w-4" /> 开始复习错题
             </button>
@@ -177,7 +177,7 @@ export default function WrongBookPage() {
 
       {/* 错题列表 */}
       {items.length === 0 ? (
-        <div className="glass-card rounded-2xl p-12 text-center tracking-wider text-white/40">
+        <div className="glass-card rounded-2xl p-12 text-center tracking-wide text-white/40">
           暂无错题，去测试页练练手吧。
         </div>
       ) : (
@@ -201,16 +201,16 @@ export default function WrongBookPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xl tracking-wide text-white">{it.word}</span>
-                    <span className="rounded-full border border-red-400/25 px-2 py-0.5 text-[10px] tracking-wider text-red-300/80">
+                    <span className="rounded-full border border-red-400/25 px-2 py-0.5 text-[10px] tracking-wide text-red-300/80">
                       错 {it.wrongCount} 次
                     </span>
                     {it.corrected && (
-                      <span className="rounded-full border border-emerald-400/25 px-2 py-0.5 text-[10px] tracking-wider text-emerald-300/80">
+                      <span className="rounded-full border border-emerald-400/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-300/80">
                         已订正
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 space-y-0.5 text-sm tracking-wider text-blue-200/80">
+                  <div className="mt-2 space-y-0.5 text-sm tracking-wide text-blue-200/80">
                     {formatMeanings(it.meanings).map((line, i) => (
                       <p key={i}>{line}</p>
                     ))}
@@ -227,7 +227,7 @@ export default function WrongBookPage() {
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
-              <div className="mt-3 space-y-1.5 text-sm tracking-wider">
+              <div className="mt-3 space-y-1.5 text-sm tracking-wide">
                 <p className="text-white/35">
                   你的答案　<span className="text-red-300/85">{it.yourAnswer}</span>
                 </p>

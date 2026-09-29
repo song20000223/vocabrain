@@ -58,12 +58,12 @@ export default function WordsPage() {
       <div>
         <p className="eyebrow">Library</p>
         <h1 className="hero-title mt-3 text-4xl sm:text-5xl">单词管理</h1>
-        <p className="mt-3 text-sm tracking-wider text-white/40">共 {words.length} 个单词</p>
+        <p className="mt-3 text-sm tracking-wide text-white/40">共 {words.length} 个单词</p>
       </div>
 
       {tip && (
         <div
-          className="glass-card rounded-xl px-4 py-2.5 text-sm tracking-wider text-blue-100"
+          className="glass-card rounded-xl px-4 py-2.5 text-sm tracking-wide text-blue-100"
           style={{ borderColor: "rgba(147,197,253,0.3)" }}
         >
           {tip}
@@ -72,19 +72,19 @@ export default function WordsPage() {
 
       {/* 手动添加 */}
       <section className="glass-card rounded-2xl p-6">
-        <h2 className="font-semibold tracking-wider text-white">手动添加</h2>
+        <h2 className="font-semibold tracking-wide text-white">手动添加</h2>
         <div className="mt-4 flex flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row">
             <input
               value={word}
               onChange={(e) => setWord(e.target.value)}
               placeholder="英文单词，如 plateau"
-              className="glass-input min-h-[44px] flex-1 rounded-xl px-4 tracking-wider"
+              className="glass-input min-h-[44px] flex-1 rounded-xl px-4 tracking-wide"
             />
             <select
               value={pos}
               onChange={(e) => setPos(e.target.value)}
-              className="glass-input min-h-[44px] rounded-xl px-4 tracking-wider"
+              className="glass-input min-h-[44px] rounded-xl px-4 tracking-wide"
             >
               {POS_OPTIONS.map((p) => (
                 <option key={p} value={p === "其他" ? "" : p} className="bg-[#0a0d12]">
@@ -99,17 +99,17 @@ export default function WordsPage() {
               onChange={(e) => setDefs(e.target.value)}
               placeholder="中文义项，多个用分号隔开，如 高原；平稳期"
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              className="glass-input min-h-[44px] flex-1 rounded-xl px-4 tracking-wider"
+              className="glass-input min-h-[44px] flex-1 rounded-xl px-4 tracking-wide"
             />
             <button
               onClick={handleAdd}
               disabled={!word.trim()}
-              className="glow-btn min-h-[44px] rounded-full px-7 text-sm tracking-wider"
+              className="glow-btn min-h-[44px] rounded-full px-7 text-sm tracking-wide"
             >
               <Plus className="h-4 w-4" /> 添加
             </button>
           </div>
-          <p className="text-xs tracking-wider text-white/30">
+          <p className="text-xs tracking-wide text-white/30">
             同一个单词可以分多次添加不同词性，会自动合并到一起。
           </p>
         </div>
@@ -117,8 +117,8 @@ export default function WordsPage() {
 
       {/* 批量导入 */}
       <section className="glass-card rounded-2xl p-6">
-        <h2 className="font-semibold tracking-wider text-white">批量导入</h2>
-        <p className="mt-2 text-sm tracking-wider text-white/40">
+        <h2 className="font-semibold tracking-wide text-white">批量导入</h2>
+        <p className="mt-2 text-sm tracking-wide text-white/40">
           每行一条，格式：<code className="font-mono text-blue-200/80">单词,词性,义项1；义项2</code>
           ，同一个单词写多行会自动合并
         </p>
@@ -132,7 +132,7 @@ export default function WordsPage() {
         <button
           onClick={handleImport}
           disabled={!batchText.trim()}
-          className="ghost-btn mt-4 min-h-[44px] px-7 text-sm tracking-wider hover:!border-blue-300/40 hover:!text-blue-200"
+          className="ghost-btn mt-4 min-h-[44px] px-7 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
         >
           <Upload className="h-4 w-4" /> 导入
         </button>
@@ -140,9 +140,9 @@ export default function WordsPage() {
 
       {/* 单词列表（按词性分组显示义项） */}
       <section>
-        <h2 className="font-semibold tracking-wider text-white">单词列表</h2>
+        <h2 className="font-semibold tracking-wide text-white">单词列表</h2>
         {words.length === 0 ? (
-          <p className="glass-card mt-4 rounded-2xl p-10 text-center text-sm tracking-wider text-white/40">
+          <p className="glass-card mt-4 rounded-2xl p-10 text-center text-sm tracking-wide text-white/40">
             还没有单词，用上面的方式添加吧。
           </p>
         ) : (
@@ -159,18 +159,18 @@ export default function WordsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-lg tracking-wide text-white">{it.word}</span>
                       {it.excluded && (
-                        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wider text-white/40">
+                        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
                           不再测
                         </span>
                       )}
                       {it.testedRounds > 0 && (
-                        <span className="font-mono text-[10px] tracking-wider text-white/25">
+                        <span className="font-mono text-[10px] tracking-wide text-white/25">
                           已测 {it.testedRounds} 次
                         </span>
                       )}
                     </div>
                     {/* 义项按词性分组 */}
-                    <div className="mt-2 space-y-0.5 text-sm tracking-wider text-white/55">
+                    <div className="mt-2 space-y-0.5 text-sm tracking-wide text-white/55">
                       {formatMeanings(it.meanings).length > 0 ? (
                         formatMeanings(it.meanings).map((line, i) => <p key={i}>{line}</p>)
                       ) : (

@@ -159,13 +159,13 @@ export default function QuizSession({
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       {/* 顶部进度 */}
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs tracking-[0.2em] text-blue-200/70">
+        <span className="font-mono text-xs tracking-[0.06em] text-blue-200/70">
           {progressText}
         </span>
         {onExit && (
           <button
             onClick={onExit}
-            className="text-xs tracking-wider text-white/35 transition-colors hover:text-white"
+            className="text-xs tracking-wide text-white/35 transition-colors hover:text-white"
           >
             {exitText ?? "结束"}
           </button>
@@ -181,7 +181,7 @@ export default function QuizSession({
           className="pointer-events-none absolute -top-20 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full"
           style={{ background: "radial-gradient(closest-side, rgba(96,165,250,0.18), transparent)" }}
         />
-        <span className="hero-title relative text-5xl tracking-tight sm:text-6xl">
+        <span className="word-display relative text-5xl sm:text-6xl">
           {current.word}
         </span>
         {current.meanings.length > 0 && (
@@ -205,12 +205,12 @@ export default function QuizSession({
         placeholder="在这里手写中文释义……（回车提交）"
         rows={3}
         disabled={!!result}
-        className="glass-input w-full resize-none rounded-2xl p-4 tracking-wider disabled:opacity-60"
+        className="glass-input w-full resize-none rounded-2xl p-4 tracking-wide disabled:opacity-60"
         autoFocus
       />
 
       {error && (
-        <div className="glass-card result-in rounded-2xl border-red-400/25 p-4 text-sm tracking-wider text-red-200">
+        <div className="glass-card result-in rounded-2xl border-red-400/25 p-4 text-sm tracking-wide text-red-200">
           {error}
         </div>
       )}
@@ -230,7 +230,7 @@ export default function QuizSession({
               <XCircle className="h-5 w-5 text-red-300" />
             )}
             <span
-              className={`font-medium tracking-wider ${
+              className={`font-medium tracking-wide ${
                 result.correct ? "text-emerald-200" : "text-red-200"
               }`}
             >
@@ -239,7 +239,7 @@ export default function QuizSession({
           </div>
 
           <div className="mt-4 text-sm leading-relaxed text-white/75">
-            <span className="tracking-[0.2em] text-white/35">标准释义　</span>
+            <span className="tracking-[0.06em] text-white/35">标准释义　</span>
             {customMeanings.length > 0 ? (
               <span className="mt-1 block space-y-0.5">
                 {customMeanings.map((line, i) => (
@@ -253,7 +253,7 @@ export default function QuizSession({
             )}
           </div>
           <p className="mt-2 text-sm leading-relaxed text-white/75">
-            <span className="tracking-[0.2em] text-white/35">评语　　</span>
+            <span className="tracking-[0.06em] text-white/35">评语　　</span>
             {result.comment}
           </p>
         </div>
@@ -264,7 +264,7 @@ export default function QuizSession({
         <button
           onClick={submit}
           disabled={!answer.trim() || judge.isPending}
-          className="glow-btn min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.2em]"
+          className="glow-btn min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.06em]"
         >
           {judge.isPending ? (
             <>
@@ -277,7 +277,7 @@ export default function QuizSession({
       ) : (
         <button
           onClick={next}
-          className="glow-btn min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.2em]"
+          className="glow-btn min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.06em]"
         >
           <RefreshCw className="h-4 w-4" />
           {index + 1 >= queue.length ? "查看结果" : "下一个单词"}

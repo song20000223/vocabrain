@@ -27,7 +27,7 @@ export default function Layout() {
                 to={to}
                 end={end}
                 className={({ isActive }) =>
-                  `flex min-h-[44px] items-center rounded-full px-4 text-[13px] tracking-wider transition-colors duration-300 ${
+                  `flex min-h-[44px] items-center rounded-full px-4 text-[13px] tracking-wide transition-colors duration-300 ${
                     isActive
                       ? "bg-white/10 text-blue-200"
                       : "text-white/50 hover:text-white"
@@ -40,7 +40,7 @@ export default function Layout() {
           </nav>
           <Link
             to="/test"
-            className="glow-btn hidden min-h-[36px] items-center rounded-full px-5 text-[13px] font-medium tracking-wider sm:flex"
+            className="glow-btn hidden min-h-[36px] items-center rounded-full px-5 text-[13px] font-medium tracking-wide sm:flex"
           >
             开始测试
           </Link>
@@ -60,7 +60,7 @@ export default function Layout() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[11px] tracking-wider transition-colors duration-300 ${
+              `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[11px] tracking-wide transition-colors duration-300 ${
                 isActive ? "text-blue-200" : "text-white/45"
               }`
             }
