@@ -1,0 +1,196 @@
+items:
+- short_id: Lv4iBCnc
+  seed: |
+    # Narrative
+
+    A creative technology agency portfolio with a cinematic, immersive entrance. The experience opens with a full-screen preloader showing a photorealistic moon reflected on dark water, establishing a contemplative, premium tone. The narrative flows from this atmospheric introduction into a bento-grid layout showcasing services, work, and philosophy. The site positions itself as an award-winning agency (Webby Awards, Awwwards, CSS Design Awards) through subtle credential displays rather than overt self-promotion.
+
+    # Tech Stack
+
+    Webflow-generated site with custom enhancements. Uses Swiper for carousel components, Lottie for icon animations, and Cloudflare Stream for background video. Custom cursor implementation replaces native cursor. CSS custom properties control glow effects and 3D transforms. No React/Vue framework—pure HTML/CSS/JS with Webflow's generated classes.
+
+    # Layout
+
+    Bento-grid homepage with asymmetric tile sizing. Full-bleed sections alternate with contained content. The grid uses a 12-column implicit system with tiles spanning varying widths (some full-width, some half, some quarter). Negative space is generous—tiles float in deep black void. Z-index layering creates depth: preloader (highest), cursor overlay, content grid, ambient video backgrounds.
+
+    # Typography
+
+    Primary font: 'PPNeueMontreal Medium', a geometric sans with technical precision. Used across UI, headings, and body. Gradient text treatment on loading screen using `linear-gradient(180deg, #E6E6E6 28.08%, #424242 159.62%)` with background-clip:text. Text hierarchy relies on size contrast rather than weight variation—single weight family.
+
+    # Color
+
+    Dark-led palette: pure black (#000) dominant background, white (#fff) for primary text and UI. Secondary grays: #5E5E5E for muted elements, #E6E6E6 for gradient start, #424242 for gradient end. Accent glow uses rgba(255,255,255,0) to rgba(255,255,255,0.2) transitions. High contrast monochrome with no color accents—relies on photography and video for chromatic interest.
+
+    # Imagery
+
+    Photorealistic moon photograph as preloader centerpiece—full moon with visible craters reflected on water surface. Video backgrounds use Cloudflare Stream with autoplay, muted, loop. Portfolio imagery appears in cards with hover-reveal previews. Awards/recognition icons displayed in cursor-following popup. Images use object-fit:cover with centered positioning.
+
+    # Components
+
+    **Buttons**: Mask-btn system with square overlay that reveals on hover. Copy buttons with mix-blend-mode:difference on icons.
+
+    **Cards**: Glassmorphism treatment with `backdrop-filter: blur(15px)` and semi-transparent backgrounds. 3D tilt on hover using `transform: rotateY(-15deg) translateZ(1vw) translateX(1vw)`.
+
+    **Navigation**: Hidden by default, revealed through menu button. Custom hamburger animation via Lottie.
+
+    **Form elements**: Custom select dropdowns with SVG arrow indicators. Radio buttons styled as image-selectable options with border-radius:1000px pill shape.
+
+    **Slider pagination**: Custom progress bar (0.2vw height, #5E5E5E track, #fff fill) with fraction counter (current/total).
+
+    # Motion
+
+    Rich motion system with multiple layers:
+
+    **Preloader sequence**: Moon glow animation, text gradient shimmer, geometric SVG loader with rotating triangle and oscillating circles. Transition out uses fade + scale.
+
+    **Cursor**: Custom cursor follows mouse with smooth interpolation. Context-aware states: awards popup on credential hover, glowing card preview on project hover.
+
+    **Scroll behaviors**: Smooth scroll transitions on grid group with `cubic-bezier(.33, .51, .56, .98)` easing. Parallax implied by transform transitions.
+
+    **Entrance animations**: Project columns scale from 0.95 to 1 with opacity fade (0.5s ease-in-out). Staggered reveal pattern.
+
+    **Ambient motion**: Continuous rotation animations (5s linear infinite for triangle, 10s reverse for secondary elements). Blinking text pulse (2.4s ease-in-out infinite).
+
+    **Hover states**: Card 3D rotation, button mask reveals, opacity transitions (300-500ms ease). Nav links fade from 0.3 to 1 opacity.
+
+    # Algorithms
+
+    Standard implementation, no special design.
+
+    # Material
+
+    Glassmorphism primary material—backdrop-filter blur (15px) over dark backgrounds. Soft glow effects using inset box-shadow with CSS custom properties (`--glow-blur`, `--glow-color`). No noise textures or physical material simulation beyond glass.
+
+    # Craft
+
+    **Cursor detail**: Native cursor hidden (`cursor:none`), custom cursor-container with opacity transitions (300ms ease, 450ms delay on page enter).
+
+    **Scrollbar**: Hidden entirely (`::-webkit-scrollbar { display: none }`, `scrollbar-width: none`).
+
+    **Focus states**: Outline explicitly removed (`outline: none !important`), relying on custom hover states.
+
+    **Loading states**: Skeleton-like placeholder text "Hover to preview" on project cards.
+
+    **Responsive adaptation**: Mobile transforms card content with `translateY(80vw)` starting position, sliding up on interaction.
+
+    # Coherence
+
+    The dark, cinematic aesthetic unifies all dimensions—typography's technical precision matches the geometric loader animations; the moon/water imagery sets the contemplative tone that the glassmorphism cards and smooth motion reinforce. Every element feels considered for a premium agency positioning.
+  references:
+        motion: "# Motion Reference\n\n## Preloader Animation System\n\nThe preloader uses a multi-layered animation sequence:\n\n**Geometric Loader (SVG-based)**:\n```css\n.tria-1 {\n    animation: rotation-1 5s linear infinite;\n}\n.scnd-elm {\n    animation: rotation-1 10s linear infinite reverse;\n}\n.circ-1 .anim-1 {\n    animation: move-1 1s ease-in-out infinite;\n}\n.circ-1 .anim-2 {\n    animation: move-2 1s ease-in-out infinite;\n}\n```\n\nKeyframe definitions:\n```css\n@keyframes rotation-1 {\n    from { transform: rotate(0deg); }\n    to { transform: rotate(360deg); }\n}\n@keyframes move-1 {\n    0% { transform: translateY(0%); }\n    50% { transform: translateY(80%); }\n}\n@keyframes move-2 {\n    0% { transform: translateY(0%); }\n    50% { transform: translateY(-80%); }\n}\n```\n\n**Blinking Text**:\n```css\n.blink-text {\n    animation: blink 2.4s ease-in-out infinite;\n}\n@keyframes blink {\n    0% { opacity: 0.25; }\n    50% { opacity: 1; }\n    100% { opacity: 0.25; }\n}\n```\n\n## Custom Cursor Implementation\n\nNative cursor disabled:\n```css\nbody, html {\n    cursor: none;\n}\n```\n\nCursor visibility states:\n```css\n.cursor-container.for-home,\n.cursor-container.for-page {\n    opacity: 0;\n    transition: opacity 300ms ease;\n}\nbody.is-home.cursor-active .cursor-container.for-home {\n    opacity: 1;\n}\nbody.is-page.cursor-active .cursor-container.for-page {\n    opacity: 1;\n    transition-delay: 450ms;\n}\n```\n\nInteractive elements maintain 
+      `cursor: none`:\n\
+            ```css\n.btn-read-more, .nav-link, .button-basic, .submit-button,\n.portofolio-link, .menu-button, .idle-cursor-area {\n    cursor: none !important;\n}\n```\n\n## Scroll-Driven Transitions\n\nGrid group smooth transform:\n```css\n.grid-group {\n    transition: transform 1s cubic-bezier(.33, .51, .56, .98);\n}\n```\n\nProject reveal animation:\n```css\n.project-col {\n    opacity: 0;\n    transform: scale(0.95);\n    transition: opacity 0.5s, transform 0.5s ease-in-out;\n}\n.project-col.visible {\n    opacity: 1;\n    transform: scale(1);\n}\n```\n\n## 3D Card Hover\n\nDesktop 3D tilt effect:\n```css\n.manifesto-card, .glow-manifesto {\n    transform-style: preserve-3d;\n    will-change: transform;\n    transition: transform 0.3s ease-in-out;\n}\n@media (min-width: 768px) {\n    .manifesto-item:hover .manifesto-card,\n    .manifesto-item:hover .glow-manifesto {\n        transform: rotateY(-15deg) translateZ(1vw) translateX(1vw);\n    }\n}\n```\n\nActive slide 3D state (Swiper integration):\n```css\n.swiper-slide-active .manifesto-item .manifesto-card,\n.swiper-slide-active .manifesto-item .glow-manifesto {\n    transform: rotateY(-3deg) translateZ(1.2vw) translateX(1.2vw);\n}\n```\n\n## Lottie Integration\n\nLottie animations configured via data attributes:\n```html\n<div class=\"x-lottie\" \n     data-animation-type=\"lottie\"\n     data-autoplay=\"1\"\n     data-loop=\"0\"\n     data-duration=\"2\"\n     data-renderer=\"svg\"\n     
+        data-src=\".../Slider-Icon-Animation.json\"\
+      >\n</div>\n```\n\n## Reusable Moves\n\n- `cinematic_preloader_moon` - Photorealistic moon + water with journey text\n- `custom_cursor_contextual` - Native cursor hidden, context-aware custom cursor\n- `glassmorphism_card_3d_tilt` - Backdrop blur + rotateY hover transform\n- `gradient_text_clip` - Linear gradient with background-clip:text\n- `marquee_opposing_directions` - Dual animations with rtl/ltr keyframes\n"
+- short_id: 4F4K5OjK
+  seed: |
+    # Narrative
+
+    A DJ software product landing page targeting professional DJs seeking an alternative to established DJ software. The narrative flows from problem statement ("Stop fighting your DJ software") through four core feature sections: set curation with chapter-based workflow, library discovery with smart filters, high-quality mixing with controller support, and simple library import. The page closes with a 4-step workflow explanation, FAQ accordion, and a final CTA. The overall tone is technical yet approachable — speaking directly to DJs' pain points.
+
+    # Tech Stack
+
+    Next.js with React, Tailwind CSS for styling, Radix UI primitives for components (navigation menu, accordion). Third-party consent manager for cookie handling. Variable font: Satoshi (woff2). Dark mode by default with CSS custom properties for theming.
+
+    # Layout
+
+    Centered floating pill navigation (`w-fit`, `rounded-full`) with glassmorphism effect — sticky at top with `z-50`. Hero section centers massive headline (64px+) with product screenshot below. Feature sections use asymmetric two-column layouts: large left headline (48px) with right-aligned descriptive text and UI mockups. Chapter cards display in horizontal scrollable rows with square album-art style thumbnails. FAQ uses full-width accordion. Footer has 4-column link grid with newsletter signup.
+
+    # Typography
+
+    Primary font: Satoshi (variable, weights 300-900). Hero headline: 64px+ bold weight, tight line-height. Section headlines: 48px bold. Body text: 16-18px regular weight with subtle opacity (`text-white/70`). Navigation links: 14px medium weight. Button text: 14px semibold. The type system relies on size contrast and weight rather than font family variation.
+
+    # Color
+
+    Dark-first palette: background `#0b0c10` (near-black), surface cards `#111318`. Primary accent: vivid lime-green `#b7f796` (buttons, links, focus rings). Text: off-white `#f7f8f8` at full opacity, muted at 70% opacity. Border: white at 15% opacity (`border-white/15`). Cookie banner uses same palette with `--primaryColor: #b7f796` and `--backgroundColor: #0b0c10f0`.
+
+    # Imagery
+
+    Product screenshots dominate — actual app interface showing waveform visualization, track library, and mixing controls. Chapter/section markers use AI-generated artistic thumbnails: drumstick with green moss, orange explosion burst, cat sleeping on armchair under lightbulb, underwater gazebo, colorful sand dunes, vintage rabbit portrait, teacup with old photographs, black geometric sculpture. These provide visual breaks and thematic anchors for each section.
+
+    # Components
+
+    **Navigation**: Floating pill with `backdrop-blur-xl backdrop-saturate-150`, shadow `0_8px_30px_rgba(0,0,0,0.18)`, inner highlight `inset_0_1px_0_rgba(255,255,255,0.15)`. Logo + divider + links + CTA button.
+
+    **Buttons**: Primary lime-green fill `#b7f796` with dark text, `rounded-lg` (8px), hover state shifts to `#cdfab5`. Secondary buttons use transparent bg with white border.
+
+    **Cards**: Dark surface `#111318`, subtle border, rounded corners. Chapter cards show square image + title + metadata (BPM, key, tags).
+
+    **Cookie Banner**: Bottom-fixed, dark translucent background, lime-green accent buttons, modal for preferences with toggle switches.
+
+    # Motion
+
+    Subtle transitions throughout: `transition-colors duration-150` on nav links, `duration-200` on buttons. Hover states shift background opacity (`hover:bg-white/5`). No heavy animations — the motion is restrained and functional. Smooth scrolling likely enabled. Cookie banner slides in from bottom.
+
+    # Algorithms
+
+    Standard implementation, no special design.
+
+    # Material
+
+    Glassmorphism is the primary material language: `backdrop-blur-xl` with `backdrop-saturate-150` on navigation. Surfaces have subtle depth via shadows and inner highlights. No noise or texture overlays — clean digital aesthetic.
+
+    # Craft
+
+    Rounded corners throughout: buttons at 8px, nav pill fully rounded, cards at 12-16px. Consistent 4px spacing scale. Focus rings use lime-green with transparency (`#b7f79661`). Public Beta badge with icon row above headline. All imagery has consistent border-radius treatment.
+
+    # Coherence
+
+    The dark theme with lime-green accent creates a distinctive "night club" aesthetic appropriate for DJ software. The glassmorphism navigation feels modern and technical. AI-generated chapter art adds personality without breaking the professional tone. The design successfully balances technical credibility with creative expression.
+- short_id: oYWdMwxn
+  seed: |
+    # Narrative
+
+    A portfolio index for a designer/developer presenting work for music artists and creative projects. The narrative is a vertical stack of oversized pill-shaped project buttons descending through a sky-like atmosphere. Each pill represents a project; clicking navigates to detail pages. A glowing sun in the upper right anchors the "sky" metaphor and links to an about page. The footer pill darkens to signal the end.
+
+    # Tech Stack
+
+    Vanilla HTML/CSS with jQuery for DOM manipulation. Swiper.js for project image carousels on detail pages. CSS keyframe animations for the shake effect and transitions for hover states.
+
+    # Layout
+
+    Single-column vertical stack of pill-shaped project containers. Pills overlap slightly with negative margins (`margin-top: -1vw; margin-bottom: -1vw`) creating a compressed, tactile stack. Each pill uses `border-radius: 10vw` for extreme roundness. The container has viewport-relative padding (`8vw 2vw 0 2vw`). A fixed-position sun sits in the upper right corner.
+
+    # Typography
+
+    Primary font: **Stempel Garamond LT Std** (serif) with an italic variant. Body set at fluid `2.2vw` size. Project titles use uppercase with `0.2em` letter-spacing, centered. Small-caps variant (`font-variant-caps: small-caps`) used for the "Work" header and footer. Embossed text effect achieved via dual text-shadow: `0 .03em 0 rgba(255,255,255,.8), 0 -.035em 0 rgba(0,0,0,.3)` creating a carved 3D appearance.
+
+    # Color
+
+    Sky gradient background: `#77AADD` (cornflower blue) at top fading to `rgba(255,255,255,0.1)` at bottom, fixed attachment. Pill backgrounds alternate between `#E8E8E8` (even) and `#CCC` (odd). Pill text: `#D8D8D8` and `#BBB` respectively. Sun: radial gradient from `#FFFFFF` center to `#FFFF55` edge with glow shadow `rgba(255,255,100,0.6)`. Footer pill: `#888` background with `#999` text.
+
+    # Imagery
+
+    No photographic imagery on the index page. Visual interest comes entirely from the 3D pill forms and the sun element. Project detail pages (referenced in CSS) use full-bleed images with `object-fit: cover` and `height: 100vh`.
+
+    # Components
+
+    **Pill buttons**: The core component. Rounded rectangles with extreme border-radius (`10vw`), inset box-shadow creating depth (`inset .4em .4em .4em rgba(255,255,255,.3), inset -.4em -.4em .4em rgba(0,0,0,.1)`), and a glossy highlight pseudo-element (`::after`) with blurred gradient overlay. **Sun**: Fixed circular element with radial gradient and outer glow, scales on hover. **Navigation buttons** (on detail pages): Same pill styling with slight rotation transforms (`rotate(1deg)`, `rotate(-2deg)`) for playful imperfection.
+
+    # Motion
+
+    Hover on pills triggers padding expansion (`10vw 20vw` → `12vw 22vw`), font-size increase (`3vw` → `3.5vw`), and an infinite shake animation (`animation: shake 3s infinite`). The shake uses a complex keyframe sequence with translate and rotate offsets creating an organic wobble. Sun scales to `1.2` on hover with `1s` transition. Mobile breakpoints disable animations. See `references/motion.md` for shake keyframe details.
+
+    # Algorithms
+
+    Standard implementation, no special design.
+
+    # Material
+
+    Glossy plastic/pill surface simulation via layered inset shadows and a blurred gradient pseudo-element creating a specular highlight. The effect mimics a soft, rounded 3D object with light coming from top-left.
+
+    # Craft
+
+    Negative margin stacking (`-1vw`) creates intentional visual overlap between pills. The embossed text uses precise dual-shadow values for a carved stone appearance. Footer pill inverts the shadow direction (`0 -.03em .02em rgba(255,255,255,.9), 0 .03em .01em rgba(0,0,0,.5)`) for a recessed rather than raised effect. OpenType features enabled: `"onum"`, `"tnum"` for old-style numerals and tabular figures.
+
+    # Coherence
+
+    The sky metaphor unifies all dimensions: the blue gradient background, the glowing sun navigation element, and the cloud-like floating pills create a whimsical, atmospheric portfolio experience. The embossed Garamond typography adds classical elegance that contrasts playfully with the toy-like pill forms.
+  references:
+        motion: "# Motion Reference\n\n## Shake Animation Keyframes\n\nThe pill hover shake creates an organic, wobbly motion through a complex keyframe sequence:\n\n```css\n@keyframes shake {\n  0%   { transform: translate(1px, 1px) rotate(0deg); }\n  10%  { transform: translate(-1px, -2px) rotate(-1deg); }\n  20%  { transform: translate(-3px, 0px) rotate(1deg); }\n  30%  { transform: translate(3px, 2px) rotate(0deg); }\n  40%  { transform: translate(1px, -1px) rotate(1deg); }\n  50%  { transform: translate(-1px, 2px) rotate(-1deg); }\n  60%  { transform: translate(-3px, 1px) rotate(0deg); }\n  70%  { transform: translate(3px, 1px) rotate(-1deg); }\n  80%  { transform: translate(-1px, -1px) rotate(1deg); }\n  90%  { transform: translate(1px, 2px) rotate(0deg); }\n  100% { transform: translate(1px, -2px) rotate(-1deg); }\n}\n```\n\n**Duration**: 3s  \n**Timing**: Default ease (no explicit easing function)  \n**Iteration**: Infinite on hover\n\n## Hover Transition\n\n```css\n.title {\n  transition: 1s, font-size 1s;\n}\n\n.title:hover {\n  padding: 12vw 22vw;\n  font-size: 3.5vw;\n  animation: shake 3s infinite;\n}\n```\n\n## Sun Scale\n\n```css\n.sun {\n  transition: transform 1s;\n}\n\n.sun:hover {\n  transform: scale(1.2);\n}\n```\n\n## Reusable Move\n\n`organic_shake_keyframes` — A hand-tuned shake animation using irregular translate/rotate offsets (varying between 1-3px translate, 0-1deg rotate) to avoid mechanical regularity. Applied on hover with padding expansion for 
+      tactile\
+      \ feedback.\n"
+
+<system-reminder>
+The risk is not borrowing too little — it is subconsciously simplifying what you borrowed. Cutting corners is forbidden in any form: never replace a reference's technique, material, structure, or motion with a cheaper version of your own. Downgrades follow repeatable patterns (illustrative, not exhaustive): input-driven motion (scroll/pointer/time) → one-shot keyframes or static states; shape-language transformation (morph/clip/mask) → the cheapest properties (scale/translate/opacity); asymmetric layout rhythm (irregular grids, editorial composition) → uniform columns and full-width stacks; layered material (blend/texture/depth) → flat single-layer fills; bespoke vessels (framing devices, illustrated components) → default cards and pills; choreographed sequences (staged, multi-step, gated) → single triggers or fakes; typographic systems (pairing/scale/font features) → swapping the font-family; styled components → library-default skins. If your version is simpler than the reference's, that is a downgrade. Implement at the reference's fidelity.
+</system-reminder>

@@ -21,8 +21,8 @@ export default function HomePage() {
     {
       to: "/test",
       icon: PenLine,
-      title: "开始测试",
-      desc: "随机抽一个单词，手写中文释义，AI 宽松判分",
+      title: "单词测试",
+      desc: "随机抽词，手写中文释义，AI 按雅思标准宽松判分",
     },
     {
       to: "/wrong-book",
@@ -39,59 +39,66 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-16">
       {/* Hero */}
-      <section className="pt-6 text-center sm:pt-12">
-        <p className="font-mono text-xs uppercase tracking-[0.3em] text-amber-200/70">
-          Vocabulary Practice
-        </p>
-        <h1 className="mt-4 font-serif text-4xl text-white sm:text-5xl">
-          像雨落进水面一样
+      <section className="pt-6 text-center sm:pt-14">
+        <p className="eyebrow">Vocabulary · AI Judged</p>
+        <h1 className="hero-title mx-auto mt-6 max-w-3xl text-5xl sm:text-7xl">
+          像雨落进水面
           <br />
-          把单词记进脑子里
+          把单词记进脑子
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[#9a9a9a]">
-          手写中文释义，AI 按「核心意思对就算对」的宽松规则判分；
-          答错的单词自动进入错题本，数据保存在你自己的浏览器里。
+        <p className="mx-auto mt-6 max-w-lg text-sm leading-loose tracking-[0.12em] text-white/45">
+          手写中文释义，AI 按「核心意思对就算对」的规则判分；
+          答错自动进错题本，数据只存在你自己的浏览器里。
         </p>
-        <div className="mt-6 flex items-center justify-center gap-6 font-mono text-sm">
-          <span>
-            <span className="text-2xl text-amber-200">{wordCount}</span>
-            <span className="ml-2 text-[#9a9a9a]">词库单词</span>
-          </span>
-          <span className="h-4 w-px bg-white/15" />
-          <span>
-            <span className="text-2xl text-amber-200">{wrongCount}</span>
-            <span className="ml-2 text-[#9a9a9a]">待复习错题</span>
-          </span>
+
+        {/* 数据 */}
+        <div className="mt-10 flex items-center justify-center gap-10 font-mono">
+          <div className="text-center">
+            <div className="text-4xl font-light text-white">{wordCount}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-white/35">
+              词库
+            </div>
+          </div>
+          <span className="h-10 w-px bg-white/10" />
+          <div className="text-center">
+            <div className="text-4xl font-light text-cyan-200">{wrongCount}</div>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-white/35">
+              待复习错题
+            </div>
+          </div>
         </div>
+
         <Link
           to="/test"
-          className="mt-8 inline-flex min-h-[48px] items-center gap-2 rounded-full border border-amber-200/40 bg-amber-200/10 px-8 font-mono text-sm text-amber-100 transition-colors hover:bg-amber-200/20"
+          className="glow-btn mt-12 min-h-[52px] rounded-full px-10 text-sm tracking-[0.2em]"
         >
           开始测试 <ArrowRight className="h-4 w-4" />
         </Link>
       </section>
 
-      {/* 功能入口 */}
+      {/* 功能入口：玻璃拟态卡片 */}
       <section className="grid gap-4 sm:grid-cols-3">
         {cards.map(({ to, icon: Icon, title, desc }) => (
           <Link
             key={to}
             to={to}
-            className="group rounded-xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:border-amber-200/40"
+            className="glass-card group rounded-2xl p-6 transition-all duration-500 hover:-translate-y-1 hover:border-cyan-300/30 hover:shadow-[0_0_35px_rgba(34,211,238,0.12)]"
           >
-            <Icon className="h-6 w-6 text-amber-200/80" />
-            <h2 className="mt-3 font-serif text-lg text-white group-hover:text-amber-200">
+            <Icon className="h-5 w-5 text-cyan-300/70 transition-colors duration-500 group-hover:text-cyan-200" />
+            <h2 className="mt-4 text-lg font-semibold tracking-wide text-white transition-colors duration-500 group-hover:text-cyan-100">
               {title}
             </h2>
-            <p className="mt-1 text-sm leading-relaxed text-[#9a9a9a]">{desc}</p>
+            <p className="mt-2 text-[13px] leading-relaxed tracking-wider text-white/40">
+              {desc}
+            </p>
           </Link>
         ))}
       </section>
 
-      <p className="text-center text-xs text-[#666]">
-        提示：词库和错题本保存在浏览器 localStorage，仅当前浏览器可见，清除浏览器数据会丢失。
+      <p className="text-center font-mono text-[11px] tracking-[0.2em] text-white/25">
+        词库与错题本保存在浏览器 localStorage · 仅当前浏览器可见 · 清除浏览器数据会丢失
       </p>
     </div>
   );

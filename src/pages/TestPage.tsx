@@ -56,12 +56,9 @@ export default function TestPage() {
 
   if (empty) {
     return (
-      <div className="flex flex-col items-center gap-4 pt-20 text-center">
-        <p className="text-[#9a9a9a]">词库是空的，先去添加一些单词吧。</p>
-        <Link
-          to="/words"
-          className="min-h-[44px] rounded-full border border-amber-200/40 bg-amber-200/10 px-6 py-2.5 font-mono text-sm text-amber-100"
-        >
+      <div className="flex flex-col items-center gap-5 pt-24 text-center">
+        <p className="tracking-wider text-white/45">词库是空的，先去添加一些单词吧。</p>
+        <Link to="/words" className="glow-btn min-h-[44px] rounded-full px-8 text-sm tracking-wider">
           去添加单词
         </Link>
       </div>
@@ -69,14 +66,18 @@ export default function TestPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6 pt-4 sm:pt-10">
-      <p className="text-center font-mono text-xs uppercase tracking-[0.3em] text-amber-200/70">
-        写出这个单词的中文释义
-      </p>
+    <div className="mx-auto flex max-w-xl flex-col gap-6">
+      <p className="eyebrow text-center">Write the Chinese meaning</p>
 
       {/* 单词卡片 */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
-        <span className="font-serif text-4xl text-white sm:text-5xl">{current?.word}</span>
+      <div className="glass-card relative overflow-hidden rounded-3xl px-6 py-16 text-center">
+        <div
+          className="pointer-events-none absolute -top-20 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full"
+          style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)" }}
+        />
+        <span className="hero-title relative text-5xl tracking-tight sm:text-6xl">
+          {current?.word}
+        </span>
       </div>
 
       {/* 作答区 */}
@@ -93,11 +94,11 @@ export default function TestPage() {
         placeholder="在这里手写中文释义……（回车提交）"
         rows={3}
         disabled={!!result}
-        className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.03] p-4 text-white placeholder:text-[#666] focus:border-amber-200/50 focus:outline-none disabled:opacity-60"
+        className="glass-input w-full resize-none rounded-2xl p-4 tracking-wider disabled:opacity-60"
       />
 
       {error && (
-        <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-200">
+        <div className="glass-card rounded-2xl border-red-400/25 p-4 text-sm tracking-wider text-red-200">
           {error}
         </div>
       )}
@@ -105,11 +106,15 @@ export default function TestPage() {
       {/* 判定结果 */}
       {result && (
         <div
-          className={`rounded-xl border p-5 ${
-            result.correct
-              ? "border-emerald-400/30 bg-emerald-400/10"
-              : "border-red-400/30 bg-red-400/10"
-          }`}
+          className="glass-card rounded-2xl p-6"
+          style={{
+            borderColor: result.correct
+              ? "rgba(52,211,153,0.3)"
+              : "rgba(248,113,113,0.3)",
+            boxShadow: result.correct
+              ? "0 0 30px rgba(52,211,153,0.1), inset 0 1px 0 rgba(255,255,255,0.08)"
+              : "0 0 30px rgba(248,113,113,0.1), inset 0 1px 0 rgba(255,255,255,0.08)",
+          }}
         >
           <div className="flex items-center gap-2">
             {result.correct ? (
@@ -117,16 +122,20 @@ export default function TestPage() {
             ) : (
               <XCircle className="h-5 w-5 text-red-300" />
             )}
-            <span className={`font-medium ${result.correct ? "text-emerald-200" : "text-red-200"}`}>
+            <span
+              className={`font-medium tracking-wider ${
+                result.correct ? "text-emerald-200" : "text-red-200"
+              }`}
+            >
               {result.correct ? "回答正确" : "回答错误（已加入错题本）"}
             </span>
           </div>
-          <p className="mt-3 text-sm text-[#dadada]">
-            <span className="text-[#9a9a9a]">标准释义：</span>
+          <p className="mt-4 text-sm leading-relaxed text-white/75">
+            <span className="tracking-[0.2em] text-white/35">标准释义　</span>
             {result.standardMeaning}
           </p>
-          <p className="mt-1 text-sm text-[#dadada]">
-            <span className="text-[#9a9a9a]">评语：</span>
+          <p className="mt-2 text-sm leading-relaxed text-white/75">
+            <span className="tracking-[0.2em] text-white/35">评语　　</span>
             {result.comment}
           </p>
         </div>
@@ -139,7 +148,7 @@ export default function TestPage() {
             <button
               onClick={submit}
               disabled={!answer.trim() || judge.isPending}
-              className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-amber-200/90 font-mono text-sm font-medium text-black transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-40"
+              className="glow-btn min-h-[52px] flex-1 rounded-full text-sm font-medium tracking-[0.2em]"
             >
               {judge.isPending ? (
                 <>
@@ -151,7 +160,7 @@ export default function TestPage() {
             </button>
             <button
               onClick={nextWord}
-              className="flex min-h-[48px] items-center gap-2 rounded-full border border-white/15 px-6 font-mono text-sm text-[#9a9a9a] transition-colors hover:text-white"
+              className="ghost-btn min-h-[52px] px-6 text-sm tracking-wider"
             >
               <SkipForward className="h-4 w-4" /> 换一个
             </button>
@@ -159,7 +168,7 @@ export default function TestPage() {
         ) : (
           <button
             onClick={nextWord}
-            className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-full bg-amber-200/90 font-mono text-sm font-medium text-black transition-colors hover:bg-amber-100"
+            className="glow-btn min-h-[52px] flex-1 rounded-full text-sm font-medium tracking-[0.2em]"
           >
             <RefreshCw className="h-4 w-4" /> 下一个单词
           </button>

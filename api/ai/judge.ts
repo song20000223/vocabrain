@@ -19,7 +19,7 @@ const judgeSchema = z.object({
 export type JudgeResult = z.infer<typeof judgeSchema>;
 
 function buildPrompt(word: string, answer: string): string {
-  return `你是一位英语老师，正在批改学生的单词默写。
+  return `你是一位雅思英语老师，正在批改学生的单词默写。
 
 英文单词：${word}
 学生手写的中文释义：${answer}
@@ -30,8 +30,16 @@ function buildPrompt(word: string, answer: string): string {
 - 不要求一字不差，不要求包含所有义项；
 - 只有完全偏离单词意思才算错误。
 
+判断规则补充（雅思标准）：
+1. 请使用雅思考试中常见的中文释义作为标准；
+2. 优先采用学术语境下的释义，而不是口语化或冷门释义；
+3. 如果单词有多个义项，只判断雅思考试中最常考的那一个；
+4. 标准释义请参考《雅思词汇真经》的常见译法。
+
+特别注意：返回的 standardMeaning 字段也必须按上述雅思标准给出，只写最常考的那个义项，不要给冷门释义。
+
 请严格只输出一个 JSON 对象，不要输出任何其他文字，格式：
-{"correct": true 或 false, "standardMeaning": "该单词的标准中文释义（简洁）", "comment": "给学生的一句话简短评语（中文，友好鼓励，30 字以内）"}`;
+{"correct": true 或 false, "standardMeaning": "该单词的雅思常用中文释义（简洁）", "comment": "给学生的一句话简短评语（中文，友好鼓励，30 字以内）"}`;
 }
 
 interface NodeLikeProcess {

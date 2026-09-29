@@ -134,3 +134,96 @@
     transform: scaleX(1);
   }
 }
+
+/* ===== VocabRain 暗黑科幻主题 ===== */
+@layer components {
+  /* 玻璃拟态卡片：背景模糊 + 极淡白边 + 深色渐变 */
+  .glass-card {
+    background: linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015) 60%, rgba(34,211,238,0.03));
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 30px rgba(0,0,0,0.35);
+  }
+
+  /* 悬浮导航玻璃体 */
+  .glass-nav {
+    background: rgba(10, 13, 18, 0.55);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  /* 微光胶囊按钮 */
+  .glow-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #eafcff;
+    background: linear-gradient(180deg, rgba(34,211,238,0.22), rgba(34,211,238,0.10));
+    border: 1px solid rgba(103,232,249,0.35);
+    box-shadow: 0 0 18px rgba(34,211,238,0.22), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: box-shadow 0.35s ease, background 0.35s ease, border-color 0.35s ease, transform 0.2s ease;
+  }
+  .glow-btn:hover {
+    background: linear-gradient(180deg, rgba(34,211,238,0.32), rgba(34,211,238,0.16));
+    border-color: rgba(103,232,249,0.6);
+    box-shadow: 0 0 28px rgba(34,211,238,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .glow-btn:active { transform: scale(0.97); }
+  .glow-btn:disabled { opacity: 0.35; box-shadow: none; cursor: not-allowed; }
+
+  /* 次级幽灵按钮 */
+  .ghost-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 9999px;
+    transition: color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .ghost-btn:hover {
+    color: #fff;
+    border-color: rgba(255,255,255,0.35);
+    box-shadow: 0 0 14px rgba(255,255,255,0.08);
+  }
+
+  /* 玻璃输入框 */
+  .glass-input {
+    background: rgba(5,8,11,0.5);
+    border: 1px solid rgba(255,255,255,0.09);
+    color: #fff;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  .glass-input::placeholder { color: rgba(255,255,255,0.28); }
+  .glass-input:focus {
+    outline: none;
+    border-color: rgba(103,232,249,0.45);
+    box-shadow: 0 0 16px rgba(34,211,238,0.15);
+  }
+
+  /* 超大电影感标题：900 字重、紧凑字距、纯白，渐隐到底部 */
+  .hero-title {
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    background: linear-gradient(180deg, #ffffff 55%, rgba(255,255,255,0.35));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* 辅助文字：浅灰 + 拉开字距 */
+  .eyebrow {
+    font-family: 'GeistMono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: rgba(103,232,249,0.65);
+  }
+}
