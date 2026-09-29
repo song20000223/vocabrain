@@ -213,3 +213,69 @@ export async function defineWord(word: string): Promise<DefineResult> {
     throw new Error(classified.message || "释义生成失败，请稍后重试");
   }
 }
+
+// ---------- 检索翻译：中文 → 英文候选词 ----------
+
+const reverseSchema = z.object({
+  words: z.array(z.string().max(60)).max(6), // 如 ["continuous", "continual"]
+});
+
+export type ReverseResult = z.infer<typeof reverseSchema>;
+
+function buildReversePrompt(chinese: string): string {
+  return `学生输入了中文「${chinese}」，想找出对应的英文单词（用于背单词）。
+
+要求：
+1. 给出 1-4 个最常用、雅思/学术语境下最贴切的英文单词；
+2. 按贴切程度排序，最贴切的排前面；
+3. 只给单词本身（单个词，不要短语、不要词性、不要释义）；
+4. 如果输入实在太宽泛没有明确对应词，给出最接近的 1-2 个。
+
+请严格只输出一个 JSON 对象：{"words": ["word1", "word2"]}`;
+}
+
+async function reverseWithDeepSeek(chinese: string, apiKey: string): Promise<ReverseResult> {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: buildReversePrompt(chinese) }],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) throw new Error(`DeepSeek 请求失败（HTTP ${res.status}）`);
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const parsed = reverseSchema.safeParse(JSON.parse(data.choices?.[0]?.message?.content ?? ""));
+  if (!parsed.success) throw new Error("AI 返回格式异常，请重试");
+  return parsed.data;
+}
+
+async function reverseWithGateway(chinese: string): Promise<ReverseResult> {
+  const provider = createOpenAICompatible({
+    name: "kimi-gw",
+    baseURL: readEnv("KIMI_AGENTGW_BASE_URL")!,
+    apiKey: readEnv("KIMI_AGENTGW_API_KEY")!,
+    supportsStructuredOutputs: true,
+  });
+  const { defaultModelId } = await listModels();
+  const { object } = await generateObject({
+    model: provider(defaultModelId),
+    schema: reverseSchema,
+    prompt: buildReversePrompt(chinese),
+  });
+  return object;
+}
+
+/** 中文 → 英文候选词（优先 DeepSeek Key，否则平台网关） */
+export async function reverseLookup(chinese: string): Promise<ReverseResult> {
+  try {
+    const deepseekKey = readEnv("DEEPSEEK_API_KEY");
+    if (deepseekKey) return await reverseWithDeepSeek(chinese, deepseekKey);
+    return await reverseWithGateway(chinese);
+  } catch (err) {
+    const classified = classifyAiError(err);
+    throw new Error(classified.message || "查询失败，请稍后重试");
+  }
+}

@@ -10,7 +10,10 @@ import {
   FolderPlus,
   X,
   Pencil,
+  Loader2,
+  Languages,
 } from "lucide-react";
+import { trpc } from "@/providers/trpc";
 import {
   getWords,
   getBooks,
@@ -22,6 +25,8 @@ import {
   removeWord,
   toggleExcluded,
   formatMeanings,
+  looksChinese,
+  parseAiDefinition,
   DEFAULT_BOOK_ID,
   type WordItem,
   type BookItem,
@@ -127,6 +132,15 @@ export default function WordsPage() {
   const [tip, setTip] = useState("");
   // 检索
   const [query, setQuery] = useState("");
+  // AI 翻译结果：英文输入 → 释义；中文输入 → 候选英文词（词 → 释义）
+  const [aiResult, setAiResult] = useState<{
+    source: string;
+    kind: "define" | "reverse";
+    /** define：单个释义；reverse：词 → 释义 列表 */
+    items: { word: string; definition: string }[];
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
   // 目标词书（添加/导入共用）
   const [targetBook, setTargetBook] = useState<string>(DEFAULT_BOOK_ID);
   const [newBookName, setNewBookName] = useState("");
@@ -201,6 +215,69 @@ export default function WordsPage() {
         w.meanings.some((m) => m.definitions.some((d) => d.toLowerCase().includes(q))),
     );
   }, [query, words]);
+
+  // ---------- AI 翻译（600ms 防抖） ----------
+  const client = trpc.useUtils().client;
+
+  useEffect(() => {
+    const q = query.trim();
+    setAiResult(null);
+    setAiError("");
+    // 太短、或词库已有精确匹配时没必要问 AI
+    if (q.length < 2 || (searchResults?.some((w) => w.word.toLowerCase() === q.toLowerCase()) ?? false)) {
+      setAiLoading(false);
+      return;
+    }
+    const isCn = looksChinese(q);
+    // 英文输入要求像个单词（避免句子和乱码触发请求）
+    if (!isCn && !/^[A-Za-z][A-Za-z\-']+$/.test(q)) {
+      setAiLoading(false);
+      return;
+    }
+    setAiLoading(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        if (isCn) {
+          const r = await client.reverse.mutate({ text: q });
+          // 每个候选词再取释义（并行）
+          const items = await Promise.all(
+            r.words.slice(0, 4).map(async (w) => {
+              try {
+                const d = await client.define.mutate({ word: w });
+                return { word: w, definition: d.definition };
+              } catch {
+                return { word: w, definition: "" };
+              }
+            }),
+          );
+          setAiResult({ source: q, kind: "reverse", items });
+        } else {
+          const d = await client.define.mutate({ word: q });
+          setAiResult({ source: q, kind: "define", items: [{ word: q, definition: d.definition }] });
+        }
+      } catch (e) {
+        setAiError(e instanceof Error ? e.message : "翻译失败，请稍后重试");
+      } finally {
+        setAiLoading(false);
+      }
+    }, 600);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  /** 一键把 AI 结果加入词书 */
+  const quickAdd = (w: string, def: string) => {
+    const { pos, definitions } = parseAiDefinition(def);
+    const dup = words.some((it) => it.word.toLowerCase() === w.toLowerCase());
+    if (addWord(w, pos, definitions, targetBook)) {
+      showTip(
+        dup
+          ? `「${w}」已在词库中，义项已合并`
+          : `已把「${w}」加入「${bookName(targetBook)}」`,
+      );
+      refresh();
+    }
+  };
 
   const bookWordCount = (id: string) => words.filter((w) => w.bookId === id).length;
   const openBook = books.find((b) => b.id === openBookId) ?? null;
@@ -290,7 +367,7 @@ export default function WordsPage() {
           <div className="mt-4">
             {searchResults.length === 0 ? (
               <p className="rounded-xl border border-dashed border-white/10 p-4 text-sm tracking-wide text-white/35">
-                没有找到「{query.trim()}」——词库里还没有，可以放心添加。
+                词库里没有「{query.trim()}」——看下面的 AI 翻译，一键就能加进来。
               </p>
             ) : (
               <>
@@ -308,6 +385,54 @@ export default function WordsPage() {
                   ))}
                 </ul>
               </>
+            )}
+          </div>
+        )}
+
+        {/* AI 翻译：输入英文给释义，输入中文给候选英文词，一键加入词书 */}
+        {query.trim().length >= 2 && (aiLoading || aiResult || aiError) && (
+          <div className="mt-4 rounded-xl border border-blue-300/15 bg-blue-400/5 p-4">
+            <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-blue-200/60">
+              <Languages className="h-3.5 w-3.5" /> AI 翻译
+            </p>
+            {aiLoading && (
+              <p className="flex items-center gap-2 text-sm tracking-wide text-white/45">
+                <Loader2 className="h-4 w-4 animate-spin" /> 正在翻译…
+              </p>
+            )}
+            {aiError && <p className="text-sm tracking-wide text-red-200/80">{aiError}</p>}
+            {aiResult && !aiLoading && (
+              <ul className="flex flex-col gap-2">
+                {aiResult.items.map((it) => {
+                  const dup = words.some((w) => w.word.toLowerCase() === it.word.toLowerCase());
+                  return (
+                    <li
+                      key={it.word}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-1.5"
+                    >
+                      <span className="font-mono text-base tracking-wide text-white">
+                        {it.word}
+                      </span>
+                      <span className="min-w-0 flex-1 text-sm tracking-wide text-white/60">
+                        {it.definition || "（释义获取失败）"}
+                      </span>
+                      {dup ? (
+                        <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] tracking-wide text-white/30">
+                          已在词库
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => quickAdd(it.word, it.definition)}
+                          disabled={!it.definition}
+                          className="glow-btn min-h-[36px] rounded-full px-4 text-xs tracking-wide"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> 加入「{bookName(targetBook)}」
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         )}

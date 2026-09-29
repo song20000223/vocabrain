@@ -250,6 +250,23 @@ export function addWord(
 
 // 词性前缀，如 "n." "v." "vt." "adj." 等，可连续出现（如 "vt. & vi."）
 const POS_TOKEN = "(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|int|interj|art|abbr|aux|det|phr)\\.";
+
+/** 中英文各半的粗略判断：检索框输入的是中文还是英文 */
+export function looksChinese(text: string): boolean {
+  return /[一-鿿]/.test(text);
+}
+
+/** 把 "n. 高原；平稳期" 这样的 AI 释义解析成 pos + definitions，供 addWord 使用 */
+export function parseAiDefinition(def: string): { pos: string; definitions: string[] } {
+  const m = def.trim().match(/^\s*((?:n|v|vt|vi|adj|adv|prep|conj|pron|num|int|interj|art|abbr)\.)\s*(.*)$/i);
+  const pos = m ? m[1] : "";
+  const body = m ? m[2] : def.trim();
+  const definitions = body
+    .split(/[;；、]/)
+    .map((d) => d.trim().replace(/[。.]+$/, "").trim())
+    .filter(Boolean);
+  return { pos, definitions };
+}
 const POS_PREFIX_RE = new RegExp(`^\\s*(${POS_TOKEN}(?:\\s*[&/]?\\s*${POS_TOKEN})*)\\s*`, "i");
 // 纯英文单词（允许连字符、撇号）
 const WORD_RE = /^[A-Za-z][A-Za-z\-']*$/;

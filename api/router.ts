@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
-import { judgeAnswer, defineWord } from "./ai/judge";
+import { judgeAnswer, defineWord, reverseLookup } from "./ai/judge";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -24,6 +24,11 @@ export const appRouter = createRouter({
   define: publicQuery
     .input(z.object({ word: z.string().min(1).max(100) }))
     .mutation(({ input }) => defineWord(input.word.trim())),
+
+  // 检索翻译：中文 → 英文候选词
+  reverse: publicQuery
+    .input(z.object({ text: z.string().min(1).max(60) }))
+    .mutation(({ input }) => reverseLookup(input.text.trim())),
 });
 
 export type AppRouter = typeof appRouter;
