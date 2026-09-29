@@ -225,26 +225,58 @@ export function markWordTested(id: string): void {
   }
 }
 
-// ---------- 全库测试进度 ----------
+// ---------- 全库测试进度（按方向独立计数） ----------
 
-export function getProgress(): Progress {
-  try {
-    const raw = localStorage.getItem(PROGRESS_KEY);
-    if (raw) return JSON.parse(raw) as Progress;
-  } catch {
-    /* 忽略 */
-  }
-  return { currentRound: 1, testedInRound: [] };
+export type Direction = "en2zh" | "zh2en";
+
+interface DirectionProgress {
+  currentRound: number;
+  testedInRound: string[];
 }
 
-function saveProgress(p: Progress) {
-  localStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+type ProgressStore = Record<Direction, DirectionProgress>;
+
+const EMPTY_DIR: DirectionProgress = { currentRound: 1, testedInRound: [] };
+
+export function getProgress(dir: Direction = "en2zh"): DirectionProgress {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return { ...EMPTY_DIR };
+    const parsed = JSON.parse(raw) as Progress | Partial<ProgressStore>;
+    // 旧格式迁移：{ currentRound, testedInRound } → 归入 en2zh
+    if ("currentRound" in parsed && !("en2zh" in parsed)) {
+      return {
+        currentRound: (parsed as Progress).currentRound,
+        testedInRound: (parsed as Progress).testedInRound,
+      };
+    }
+    return (parsed as Partial<ProgressStore>)[dir] ?? { ...EMPTY_DIR };
+  } catch {
+    return { ...EMPTY_DIR };
+  }
+}
+
+function readStore(): ProgressStore {
+  return {
+    en2zh: getProgress("en2zh"),
+    zh2en: getProgress("zh2en"),
+  };
+}
+
+function saveProgress(dir: Direction, p: DirectionProgress) {
+  const store = readStore();
+  store[dir] = p;
+  localStorage.setItem(PROGRESS_KEY, JSON.stringify(store));
   notify();
 }
 
-/** 一键重置全部进度 */
+/** 一键重置全部进度（两个方向都重置） */
 export function resetProgress(): void {
-  saveProgress({ currentRound: 1, testedInRound: [] });
+  localStorage.setItem(
+    PROGRESS_KEY,
+    JSON.stringify({ en2zh: { ...EMPTY_DIR }, zh2en: { ...EMPTY_DIR } }),
+  );
+  notify();
 }
 
 /** 可参与测试的单词池（排除“不再测”的） */
@@ -252,10 +284,10 @@ function testableWords(): WordItem[] {
   return getWords().filter((w) => !w.excluded);
 }
 
-/** 本轮进度：{ tested, total, round } */
-export function roundStats(): { round: number; tested: number; total: number } {
+/** 本轮进度：{ tested, total, round }，按方向独立 */
+export function roundStats(dir: Direction = "en2zh"): { round: number; tested: number; total: number } {
   const pool = testableWords();
-  const p = getProgress();
+  const p = getProgress(dir);
   const ids = new Set(pool.map((w) => w.id));
   const tested = p.testedInRound.filter((id) => ids.has(id)).length;
   return { round: p.currentRound, tested, total: pool.length };
@@ -263,21 +295,20 @@ export function roundStats(): { round: number; tested: number; total: number } {
 
 /**
  * 抽取下一个单词（全库模式）：
- * 优先本轮未测的；全部测过一遍后自动开启新一轮。
+ * 优先本轮未测的；全部测过一遍后自动开启新一轮。按方向独立计数。
  */
-export function pickNextWord(excludeId?: string): WordItem | null {
+export function pickNextWord(excludeId?: string, dir: Direction = "en2zh"): WordItem | null {
   let pool = testableWords();
   if (pool.length === 0) return null;
 
-  let p = getProgress();
+  let p = getProgress(dir);
   const poolIds = new Set(pool.map((w) => w.id));
   p.testedInRound = p.testedInRound.filter((id) => poolIds.has(id));
 
   if (p.testedInRound.length >= pool.length) {
-    // 本轮完成 → 自动重置，开启新一轮
     p = { currentRound: p.currentRound + 1, testedInRound: [] };
   }
-  saveProgress(p);
+  saveProgress(dir, p);
 
   const untested = pool.filter((w) => !p.testedInRound.includes(w.id) && w.id !== excludeId);
   const candidates = untested.length > 0 ? untested : pool.filter((w) => w.id !== excludeId);
@@ -285,12 +316,12 @@ export function pickNextWord(excludeId?: string): WordItem | null {
   return finalPool[Math.floor(Math.random() * finalPool.length)];
 }
 
-/** 把单词记入本轮已测（指定模式和错题复习也要调用，计入全库进度） */
-export function markTestedInRound(id: string): void {
-  const p = getProgress();
+/** 把单词记入本轮已测（指定模式和错题复习也要调用），按方向独立 */
+export function markTestedInRound(id: string, dir: Direction = "en2zh"): void {
+  const p = getProgress(dir);
   if (!p.testedInRound.includes(id)) {
     p.testedInRound.push(id);
-    saveProgress(p);
+    saveProgress(dir, p);
   }
   markWordTested(id);
 }

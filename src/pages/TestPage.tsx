@@ -11,14 +11,14 @@ import {
   roundStats,
   resetProgress,
   type WordItem,
+  type Direction,
 } from "@/lib/store";
 
 type Mode = "all" | "pick";
-type Direction = "en2zh" | "zh2en";
 
 export default function TestPage() {
   const [words, setWords] = useState<WordItem[]>([]);
-  const [stats, setStats] = useState(roundStats());
+  const [stats, setStats] = useState(() => roundStats("en2zh"));
 
   // 设置面板状态
   const [mode, setMode] = useState<Mode>("all");
@@ -33,13 +33,14 @@ export default function TestPage() {
 
   const refresh = () => {
     setWords(getWords());
-    setStats(roundStats());
+    setStats(roundStats(direction));
   };
   useEffect(() => {
     refresh();
     window.addEventListener("vocab-store-change", refresh);
     return () => window.removeEventListener("vocab-store-change", refresh);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [direction]);
 
   const testable = useMemo(() => words.filter((w) => !w.excluded), [words]);
 
@@ -52,7 +53,7 @@ export default function TestPage() {
     const picked: QuizWord[] = [];
     let lastId: string | undefined;
     for (let i = 0; i < count; i++) {
-      const w = pickNextWord(lastId);
+      const w = pickNextWord(lastId, direction);
       if (!w) break;
       picked.push(w);
       lastId = w.id;
@@ -71,7 +72,7 @@ export default function TestPage() {
   // ---------- 判分回调 ----------
 
   const handleJudged = (word: QuizWord, answer: string, result: QuizJudgeResult) => {
-    markTestedInRound(word.id); // 指定模式也计入全库进度
+    markTestedInRound(word.id, direction); // 指定模式也计入当前方向的全库进度
     if (!result.correct) {
       const full = words.find((w) => w.id === word.id);
       addToWrongBook(full ?? { ...word, testedRounds: 0, lastTestedAt: null, excluded: false }, answer, result.comment);
@@ -142,6 +143,9 @@ export default function TestPage() {
       <div className="glass-card rounded-2xl p-5">
         <div className="flex items-center justify-between text-sm">
           <span className="tracking-wide text-white/45">
+            <span className="mr-2 rounded-full border border-blue-300/30 px-2 py-0.5 text-[10px] text-blue-200/80">
+              {direction === "en2zh" ? "英→中" : "中→英"}
+            </span>
             第 {stats.round} 轮 · 已测 <span className="text-blue-200">{stats.tested}</span> / {stats.total}
           </span>
           <button
