@@ -139,7 +139,7 @@ export default function TestPage() {
       <div className="glass-card rounded-2xl p-5">
         <div className="flex items-center justify-between text-sm">
           <span className="tracking-wider text-white/45">
-            第 {stats.round} 轮 · 已测 <span className="text-cyan-200">{stats.tested}</span> / {stats.total}
+            第 {stats.round} 轮 · 已测 <span className="text-blue-200">{stats.tested}</span> / {stats.total}
           </span>
           <button
             onClick={() => {
@@ -152,7 +152,7 @@ export default function TestPage() {
         </div>
         <div className="relative mt-3 h-1.5 overflow-visible rounded-full bg-white/8">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-400/60 to-cyan-300 transition-all duration-500"
+            className="h-full rounded-full bg-gradient-to-r from-blue-400/60 to-blue-300 transition-all duration-500"
             style={{ width: stats.total ? `${(stats.tested / stats.total) * 100}%` : "0%" }}
           />
           {/* 里程碑刻度：25% / 50% / 75% / 100% */}
@@ -164,9 +164,9 @@ export default function TestPage() {
                 className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-500"
                 style={{
                   left: `${m}%`,
-                  borderColor: reached ? "rgba(103,232,249,0.8)" : "rgba(255,255,255,0.15)",
-                  background: reached ? "rgba(34,211,238,0.5)" : "#0c1016",
-                  boxShadow: reached ? "0 0 8px rgba(34,211,238,0.5)" : "none",
+                  borderColor: reached ? "rgba(147,197,253,0.8)" : "rgba(255,255,255,0.15)",
+                  background: reached ? "rgba(96,165,250,0.5)" : "#0c1016",
+                  boxShadow: reached ? "0 0 8px rgba(96,165,250,0.5)" : "none",
                 }}
               />
             );
@@ -181,7 +181,7 @@ export default function TestPage() {
             onClick={() => setMode("all")}
             className={`min-h-[56px] rounded-xl border text-sm tracking-wider transition-all duration-300 ${
               mode === "all"
-                ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.15)]"
+                ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
                 : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
             }`}
           >
@@ -191,7 +191,7 @@ export default function TestPage() {
             onClick={() => setMode("pick")}
             className={`min-h-[56px] rounded-xl border text-sm tracking-wider transition-all duration-300 ${
               mode === "pick"
-                ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.15)]"
+                ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
                 : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
             }`}
           >
@@ -202,12 +202,12 @@ export default function TestPage() {
         {mode === "all" ? (
           <div className="mt-5">
             <label className="text-sm tracking-wider text-white/45">
-              本次测试数量 <span className="text-white/25">（转动选择，1 – {Math.max(testable.length, 30)} 题）</span>
+              本次测试数量 <span className="text-white/25">（转动选择，1 – {Math.max(testable.length, 100)} 题）</span>
             </label>
             <div className="mt-2">
               <CountWheel
                 min={1}
-                max={Math.max(testable.length, 30)}
+                max={Math.max(testable.length, 100)}
                 value={count}
                 onChange={setCount}
                 unit="题"
@@ -226,7 +226,7 @@ export default function TestPage() {
               <span className={selected.size ? "text-white" : "text-white/35"}>
                 {selected.size ? `已选 ${selected.size} 个单词` : "点击选择单词…"}
               </span>
-              <CheckSquare className="h-4 w-4 text-cyan-300/60" />
+              <CheckSquare className="h-4 w-4 text-blue-300/60" />
             </button>
           </div>
         )}
@@ -287,7 +287,7 @@ export default function TestPage() {
                       className="flex min-h-[48px] w-full items-center gap-3 px-1 text-left"
                     >
                       {checked ? (
-                        <CheckSquare className="h-4 w-4 shrink-0 text-cyan-300" />
+                        <CheckSquare className="h-4 w-4 shrink-0 text-blue-300" />
                       ) : (
                         <Square className="h-4 w-4 shrink-0 text-white/25" />
                       )}

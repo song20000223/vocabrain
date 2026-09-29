@@ -139,7 +139,7 @@
 @layer components {
   /* 玻璃拟态卡片：背景模糊 + 极淡白边 + 深色渐变 */
   .glass-card {
-    background: linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015) 60%, rgba(34,211,238,0.03));
+    background: linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015) 60%, rgba(96,165,250,0.03));
     backdrop-filter: blur(15px);
     -webkit-backdrop-filter: blur(15px);
     border: 1px solid rgba(255,255,255,0.08);
@@ -162,15 +162,15 @@
     justify-content: center;
     gap: 0.5rem;
     color: #eafcff;
-    background: linear-gradient(180deg, rgba(34,211,238,0.22), rgba(34,211,238,0.10));
-    border: 1px solid rgba(103,232,249,0.35);
-    box-shadow: 0 0 18px rgba(34,211,238,0.22), inset 0 1px 0 rgba(255,255,255,0.15);
+    background: linear-gradient(180deg, rgba(96,165,250,0.22), rgba(96,165,250,0.10));
+    border: 1px solid rgba(147,197,253,0.35);
+    box-shadow: 0 0 18px rgba(96,165,250,0.22), inset 0 1px 0 rgba(255,255,255,0.15);
     transition: box-shadow 0.35s ease, background 0.35s ease, border-color 0.35s ease, transform 0.2s ease;
   }
   .glow-btn:hover {
-    background: linear-gradient(180deg, rgba(34,211,238,0.32), rgba(34,211,238,0.16));
-    border-color: rgba(103,232,249,0.6);
-    box-shadow: 0 0 28px rgba(34,211,238,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    background: linear-gradient(180deg, rgba(96,165,250,0.32), rgba(96,165,250,0.16));
+    border-color: rgba(147,197,253,0.6);
+    box-shadow: 0 0 28px rgba(96,165,250,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
   }
   .glow-btn:active { transform: scale(0.97); }
   .glow-btn:disabled { opacity: 0.35; box-shadow: none; cursor: not-allowed; }
@@ -202,8 +202,8 @@
   .glass-input::placeholder { color: rgba(255,255,255,0.28); }
   .glass-input:focus {
     outline: none;
-    border-color: rgba(103,232,249,0.45);
-    box-shadow: 0 0 16px rgba(34,211,238,0.15);
+    border-color: rgba(147,197,253,0.45);
+    box-shadow: 0 0 16px rgba(96,165,250,0.15);
   }
 
   /* 超大电影感标题：900 字重、紧凑字距、纯白，渐隐到底部 */
@@ -224,7 +224,7 @@
     font-size: 11px;
     letter-spacing: 0.35em;
     text-transform: uppercase;
-    color: rgba(103,232,249,0.65);
+    color: rgba(147,197,253,0.65);
   }
 }
 

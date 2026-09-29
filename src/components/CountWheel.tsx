@@ -72,8 +72,8 @@ export default function CountWheel({ min = 1, max, value, onChange, unit = "题"
 
       {/* 中央高亮带 */}
       <div
-        className="pointer-events-none absolute inset-x-3 z-10 rounded-xl border border-cyan-300/30 bg-cyan-300/[0.06]"
-        style={{ top: ITEM_H * 2, height: ITEM_H, boxShadow: "0 0 20px rgba(34,211,238,0.12), inset 0 1px 0 rgba(255,255,255,0.06)" }}
+        className="pointer-events-none absolute inset-x-3 z-10 rounded-xl border border-blue-300/30 bg-blue-300/[0.06]"
+        style={{ top: ITEM_H * 2, height: ITEM_H, boxShadow: "0 0 20px rgba(96,165,250,0.12), inset 0 1px 0 rgba(255,255,255,0.06)" }}
       />
 
       {/* 滚筒 */}
@@ -95,13 +95,13 @@ export default function CountWheel({ min = 1, max, value, onChange, unit = "题"
                 style={{
                   height: ITEM_H,
                   fontSize: isActive ? 22 : 14,
-                  color: isActive ? "#a5f3fc" : dist === 1 ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.18)",
+                  color: isActive ? "#bfdbfe" : dist === 1 ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.18)",
                   fontWeight: isActive ? 600 : 400,
-                  textShadow: isActive ? "0 0 14px rgba(34,211,238,0.5)" : "none",
+                  textShadow: isActive ? "0 0 14px rgba(96,165,250,0.5)" : "none",
                 }}
               >
                 {n}
-                {isActive && <span className="ml-1 text-xs font-normal tracking-widest text-cyan-200/60">{unit}</span>}
+                {isActive && <span className="ml-1 text-xs font-normal tracking-widest text-blue-200/60">{unit}</span>}
               </button>
             </li>
           );

@@ -18,7 +18,7 @@ export default function Layout() {
       <header className="fixed left-0 right-0 top-4 z-50 flex justify-center px-4">
         <div className="glass-nav flex h-12 w-full max-w-3xl items-center justify-between rounded-full pl-5 pr-2">
           <Link to="/" className="font-mono text-sm tracking-[0.2em] text-white">
-            VOCAB<span className="text-cyan-300">RAIN</span>
+            VOCAB<span className="text-blue-300">RAIN</span>
           </Link>
           <nav className="hidden items-center gap-1 sm:flex">
             {NAV_ITEMS.map(({ to, label, end }) => (
@@ -29,7 +29,7 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `flex min-h-[44px] items-center rounded-full px-4 text-[13px] tracking-wider transition-colors duration-300 ${
                     isActive
-                      ? "bg-white/10 text-cyan-200"
+                      ? "bg-white/10 text-blue-200"
                       : "text-white/50 hover:text-white"
                   }`
                 }
@@ -61,7 +61,7 @@ export default function Layout() {
             end={end}
             className={({ isActive }) =>
               `flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 text-[11px] tracking-wider transition-colors duration-300 ${
-                isActive ? "text-cyan-200" : "text-white/45"
+                isActive ? "text-blue-200" : "text-white/45"
               }`
             }
           >

@@ -159,7 +159,7 @@ export default function QuizSession({
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       {/* 顶部进度 */}
       <div className="flex items-center justify-between">
-        <span className="font-mono text-xs tracking-[0.2em] text-cyan-200/70">
+        <span className="font-mono text-xs tracking-[0.2em] text-blue-200/70">
           {progressText}
         </span>
         {onExit && (
@@ -179,13 +179,13 @@ export default function QuizSession({
       >
         <div
           className="pointer-events-none absolute -top-20 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full"
-          style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)" }}
+          style={{ background: "radial-gradient(closest-side, rgba(96,165,250,0.18), transparent)" }}
         />
         <span className="hero-title relative text-5xl tracking-tight sm:text-6xl">
           {current.word}
         </span>
         {current.meanings.length > 0 && (
-          <span className="absolute bottom-3 right-4 flex items-center gap-1 font-mono text-[10px] tracking-widest text-cyan-200/40">
+          <span className="absolute bottom-3 right-4 flex items-center gap-1 font-mono text-[10px] tracking-widest text-blue-200/40">
             <Zap className="h-3 w-3" /> 词库释义·极速判定
           </span>
         )}

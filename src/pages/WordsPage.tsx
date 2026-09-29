@@ -63,8 +63,8 @@ export default function WordsPage() {
 
       {tip && (
         <div
-          className="glass-card rounded-xl px-4 py-2.5 text-sm tracking-wider text-cyan-100"
-          style={{ borderColor: "rgba(103,232,249,0.3)" }}
+          className="glass-card rounded-xl px-4 py-2.5 text-sm tracking-wider text-blue-100"
+          style={{ borderColor: "rgba(147,197,253,0.3)" }}
         >
           {tip}
         </div>
@@ -119,7 +119,7 @@ export default function WordsPage() {
       <section className="glass-card rounded-2xl p-6">
         <h2 className="font-semibold tracking-wider text-white">批量导入</h2>
         <p className="mt-2 text-sm tracking-wider text-white/40">
-          每行一条，格式：<code className="font-mono text-cyan-200/80">单词,词性,义项1；义项2</code>
+          每行一条，格式：<code className="font-mono text-blue-200/80">单词,词性,义项1；义项2</code>
           ，同一个单词写多行会自动合并
         </p>
         <textarea
@@ -132,7 +132,7 @@ export default function WordsPage() {
         <button
           onClick={handleImport}
           disabled={!batchText.trim()}
-          className="ghost-btn mt-4 min-h-[44px] px-7 text-sm tracking-wider hover:!border-cyan-300/40 hover:!text-cyan-200"
+          className="ghost-btn mt-4 min-h-[44px] px-7 text-sm tracking-wider hover:!border-blue-300/40 hover:!text-blue-200"
         >
           <Upload className="h-4 w-4" /> 导入
         </button>
@@ -184,7 +184,7 @@ export default function WordsPage() {
                       aria-label={it.excluded ? "恢复测试" : "不再测"}
                       title={it.excluded ? "恢复测试" : "不再测"}
                       className={`flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full transition-colors duration-300 ${
-                        it.excluded ? "text-cyan-300" : "text-white/25 hover:text-cyan-200"
+                        it.excluded ? "text-blue-300" : "text-white/25 hover:text-blue-200"
                       }`}
                     >
                       {it.excluded ? <CircleCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}

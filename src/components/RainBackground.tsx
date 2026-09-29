@@ -99,9 +99,9 @@ export default function RainBackground() {
       >
         <defs>
           <linearGradient id="waveGlow" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="rgba(34,211,238,0)" />
-            <stop offset="50%" stopColor="rgba(34,211,238,0.55)" />
-            <stop offset="100%" stopColor="rgba(34,211,238,0)" />
+            <stop offset="0%" stopColor="rgba(96,165,250,0)" />
+            <stop offset="50%" stopColor="rgba(96,165,250,0.55)" />
+            <stop offset="100%" stopColor="rgba(96,165,250,0)" />
           </linearGradient>
           <filter id="blur6" x="-20%" y="-200%" width="140%" height="500%">
             <feGaussianBlur stdDeviation="6" />

@@ -85,14 +85,11 @@ export default function HomePage() {
           把单词记进脑子
         </h1>
         {/* 打字机 slogan */}
-        <p className="mt-5 h-6 font-mono text-sm tracking-[0.25em] text-cyan-200/70">
+        <p className="mt-5 h-6 font-mono text-sm tracking-[0.25em] text-blue-200/70">
           {typed}
-          <span className="typewriter-caret ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-cyan-300" />
+          <span className="typewriter-caret ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-blue-300" />
         </p>
-        <p className="mx-auto mt-4 max-w-lg text-sm leading-loose tracking-[0.12em] text-white/45">
-          手写中文释义，AI 按「核心意思对就算对」的规则判分；
-          答错自动进错题本，数据只存在你自己的浏览器里。
-        </p>
+
 
         {/* 数据 */}
         <div className="mt-10 flex items-center justify-center gap-10 font-mono">
@@ -104,7 +101,7 @@ export default function HomePage() {
           </div>
           <span className="h-10 w-px bg-white/10" />
           <div className="text-center">
-            <div className="text-4xl font-light text-cyan-200">{wrongCount}</div>
+            <div className="text-4xl font-light text-blue-200">{wrongCount}</div>
             <div className="mt-1 text-[11px] uppercase tracking-[0.25em] text-white/35">
               待复习错题
             </div>
@@ -125,10 +122,10 @@ export default function HomePage() {
           <Link
             key={to}
             to={to}
-            className="glass-card group rounded-2xl p-6 transition-all duration-500 hover:-translate-y-1 hover:border-cyan-300/30 hover:shadow-[0_0_35px_rgba(34,211,238,0.12)]"
+            className="glass-card group rounded-2xl p-6 transition-all duration-500 hover:-translate-y-1 hover:border-blue-300/30 hover:shadow-[0_0_35px_rgba(96,165,250,0.12)]"
           >
-            <Icon className="h-5 w-5 text-cyan-300/70 transition-colors duration-500 group-hover:text-cyan-200" />
-            <h2 className="mt-4 text-lg font-semibold tracking-wide text-white transition-colors duration-500 group-hover:text-cyan-100">
+            <Icon className="h-5 w-5 text-blue-300/70 transition-colors duration-500 group-hover:text-blue-200" />
+            <h2 className="mt-4 text-lg font-semibold tracking-wide text-white transition-colors duration-500 group-hover:text-blue-100">
               {title}
             </h2>
             <p className="mt-2 text-[13px] leading-relaxed tracking-wider text-white/40">

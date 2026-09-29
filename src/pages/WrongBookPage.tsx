@@ -134,8 +134,8 @@ export default function WrongBookPage() {
 
       {/* 复习完成总结 */}
       {summary && (
-        <div className="glass-card rounded-2xl p-6" style={{ borderColor: "rgba(103,232,249,0.3)" }}>
-          <p className="font-medium tracking-wider text-cyan-100">本轮复习完成</p>
+        <div className="glass-card rounded-2xl p-6" style={{ borderColor: "rgba(147,197,253,0.3)" }}>
+          <p className="font-medium tracking-wider text-blue-100">本轮复习完成</p>
           <p className="mt-2 text-sm tracking-wider text-white/55">
             订正 <span className="text-emerald-300">{summary.corrected}</span> 题 ·
             仍未掌握 <span className="text-red-300">{summary.stillWrong}</span> 题
@@ -160,7 +160,7 @@ export default function WrongBookPage() {
                   type="checkbox"
                   checked={autoRemove}
                   onChange={(e) => setAutoRemove(e.target.checked)}
-                  className="h-4 w-4 accent-cyan-300"
+                  className="h-4 w-4 accent-blue-300"
                 />
                 答对后自动移出错题本（不勾选则保留并标记「已订正」）
               </label>
@@ -210,7 +210,7 @@ export default function WrongBookPage() {
                       </span>
                     )}
                   </div>
-                  <div className="mt-2 space-y-0.5 text-sm tracking-wider text-cyan-200/80">
+                  <div className="mt-2 space-y-0.5 text-sm tracking-wider text-blue-200/80">
                     {formatMeanings(it.meanings).map((line, i) => (
                       <p key={i}>{line}</p>
                     ))}
