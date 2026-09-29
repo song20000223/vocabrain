@@ -10,6 +10,7 @@ import {
   markTestedInRound,
   roundStats,
   resetProgress,
+  getProgress,
   type WordItem,
   type Direction,
 } from "@/lib/store";
@@ -29,6 +30,8 @@ export default function TestPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rangeText, setRangeText] = useState("");
+  // 出题顺序：按词库顺序 / 乱序
+  const [ordered, setOrdered] = useState(true);
 
   // 测试进行状态
   const [queue, setQueue] = useState<QuizWord[] | null>(null);
@@ -51,7 +54,19 @@ export default function TestPage() {
   const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
 
   const startAll = () => {
-    // 全库模式：按进度队列连续抽 N 个（优先未测）
+    if (ordered) {
+      // 按词库顺序：从本轮进度继续往后出 N 个（优先未测，保持列表顺序）
+      const p = testable;
+      const tested = new Set(getProgress(direction).testedInRound);
+      const untested = p.filter((w) => !tested.has(w.id));
+      const base = untested.length > 0 ? untested : p;
+      const picked: QuizWord[] = [];
+      for (let i = 0; i < count && i < base.length; i++) picked.push(base[i]);
+      if (picked.length === 0) return;
+      setQueue(picked);
+      return;
+    }
+    // 乱序：按进度队列连续随机抽 N 个（优先未测）
     const picked: QuizWord[] = [];
     let lastId: string | undefined;
     for (let i = 0; i < count; i++) {
@@ -65,9 +80,10 @@ export default function TestPage() {
   };
 
   const startPicked = () => {
+    // testable 本身就是词库顺序，filter 后保持顺序；乱序时才 shuffle
     const pool = testable.filter((w) => selected.has(w.id));
     if (pool.length === 0) return;
-    setQueue(shuffle(pool));
+    setQueue(ordered ? pool : shuffle(pool));
     setPickerOpen(false);
   };
 
@@ -227,6 +243,29 @@ export default function TestPage() {
             >
               <span className="block">{d.label}</span>
               <span className="mt-0.5 block text-[11px] font-normal text-white/35">{d.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* 出题顺序：按词库顺序 / 乱序 */}
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          {(
+            [
+              { v: true, label: "按顺序", desc: "按词库列表的序号出题" },
+              { v: false, label: "乱序", desc: "随机打乱后出题" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={String(o.v)}
+              onClick={() => setOrdered(o.v)}
+              className={`min-h-[48px] rounded-xl border px-3 text-sm tracking-wide transition-all duration-300 ${
+                ordered === o.v
+                  ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
+                  : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              <span className="block">{o.label}</span>
+              <span className="mt-0.5 block text-[11px] font-normal text-white/35">{o.desc}</span>
             </button>
           ))}
         </div>
