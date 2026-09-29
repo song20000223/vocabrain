@@ -227,3 +227,51 @@
     color: rgba(103,232,249,0.65);
   }
 }
+
+/* ===== 答题反馈动效 ===== */
+@layer components {
+  /* 答对：青色涟漪从中心荡开一次 */
+  @keyframes ripple-correct {
+    0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.45), inset 0 1px 0 rgba(255,255,255,0.08); }
+    100% { box-shadow: 0 0 0 28px rgba(52,211,153,0), inset 0 1px 0 rgba(255,255,255,0.08); }
+  }
+  .ripple-correct { animation: ripple-correct 0.9s ease-out 1; }
+
+  /* 答错：轻微抖动 */
+  @keyframes shake-wrong {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(5px); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(2px); }
+  }
+  .shake-wrong { animation: shake-wrong 0.45s ease 1; }
+
+  /* 单词卡翻牌过渡 */
+  @keyframes flip-in {
+    0%   { opacity: 0; transform: perspective(800px) rotateX(-18deg) translateY(10px); }
+    100% { opacity: 1; transform: perspective(800px) rotateX(0deg) translateY(0); }
+  }
+  .flip-in { animation: flip-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 1; }
+
+  /* 结果卡片淡入上移 */
+  @keyframes result-in {
+    0%   { opacity: 0; transform: translateY(14px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .result-in { animation: result-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) 1; }
+
+  /* 一轮完成：数字雨短暂变亮 */
+  .rain-celebrate { animation: rain-celebrate 2.2s ease-in-out 1; }
+  @keyframes rain-celebrate {
+    0%, 100% { opacity: 0.7; filter: none; }
+    40% { opacity: 1; filter: brightness(1.9) saturate(1.4); }
+  }
+
+  /* 首页打字机光标 */
+  @keyframes caret-blink {
+    0%, 45% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+  .typewriter-caret { animation: caret-blink 1s step-end infinite; }
+}

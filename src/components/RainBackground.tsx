@@ -80,7 +80,7 @@ export default function RainBackground() {
   }, []);
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-0" aria-hidden>
+    <div className="pointer-events-none fixed inset-0 z-0" aria-hidden id="rain-bg">
       {/* 深邃黑灰渐变底 */}
       <div
         className="absolute inset-0"

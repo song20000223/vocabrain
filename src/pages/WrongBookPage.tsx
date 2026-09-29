@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Trash2, Eraser, Play } from "lucide-react";
-import QuizSession, { type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
+import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
 import {
   getWrongBook,
   getWords,
@@ -91,6 +91,7 @@ export default function WrongBookPage() {
         onJudged={handleJudged}
         onCorrect={handleCorrect}
         onFinish={() => {
+          celebrateRain();
           setReviewQueue(null);
           refresh();
         }}
@@ -182,7 +183,20 @@ export default function WrongBookPage() {
       ) : (
         <ul className="flex flex-col gap-4">
           {items.map((it) => (
-            <li key={it.id} className="glass-card rounded-2xl p-5 sm:p-6">
+            <li
+              key={it.id}
+              className="glass-card relative overflow-hidden rounded-2xl p-5 sm:p-6"
+            >
+              {/* 错误热度条：错得越多越亮 */}
+              {it.wrongCount >= 2 && (
+                <span
+                  className="absolute left-0 top-0 h-full w-[3px]"
+                  style={{
+                    background: `linear-gradient(180deg, rgba(248,113,113,${Math.min(0.25 + it.wrongCount * 0.15, 0.9)}), transparent)`,
+                    boxShadow: `0 0 ${4 + it.wrongCount * 2}px rgba(248,113,113,${Math.min(0.2 + it.wrongCount * 0.1, 0.6)})`,
+                  }}
+                />
+              )}
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">

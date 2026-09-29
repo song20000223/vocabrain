@@ -3,9 +3,45 @@ import { Link } from "react-router-dom";
 import { PenLine, BookmarkX, ListPlus, ArrowRight } from "lucide-react";
 import { getWords, getWrongBook } from "@/lib/store";
 
+const SLOGANS = ["Every drop counts.", "Rain falls. Words stay.", "一词一雨，积水成渊。"];
+
 export default function HomePage() {
   const [wordCount, setWordCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
+  const [typed, setTyped] = useState("");
+
+  // 打字机循环
+  useEffect(() => {
+    let sloganIdx = 0;
+    let charIdx = 0;
+    let deleting = false;
+    let timer: number;
+    const tick = () => {
+      const s = SLOGANS[sloganIdx];
+      if (!deleting) {
+        charIdx += 1;
+        setTyped(s.slice(0, charIdx));
+        if (charIdx >= s.length) {
+          deleting = true;
+          timer = window.setTimeout(tick, 2200);
+          return;
+        }
+        timer = window.setTimeout(tick, 110);
+      } else {
+        charIdx -= 1;
+        setTyped(s.slice(0, charIdx));
+        if (charIdx <= 0) {
+          deleting = false;
+          sloganIdx = (sloganIdx + 1) % SLOGANS.length;
+          timer = window.setTimeout(tick, 500);
+          return;
+        }
+        timer = window.setTimeout(tick, 45);
+      }
+    };
+    timer = window.setTimeout(tick, 800);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const refresh = () => {
@@ -48,7 +84,12 @@ export default function HomePage() {
           <br />
           把单词记进脑子
         </h1>
-        <p className="mx-auto mt-6 max-w-lg text-sm leading-loose tracking-[0.12em] text-white/45">
+        {/* 打字机 slogan */}
+        <p className="mt-5 h-6 font-mono text-sm tracking-[0.25em] text-cyan-200/70">
+          {typed}
+          <span className="typewriter-caret ml-0.5 inline-block h-4 w-[2px] translate-y-[3px] bg-cyan-300" />
+        </p>
+        <p className="mx-auto mt-4 max-w-lg text-sm leading-loose tracking-[0.12em] text-white/45">
           手写中文释义，AI 按「核心意思对就算对」的规则判分；
           答错自动进错题本，数据只存在你自己的浏览器里。
         </p>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Play, CheckSquare, Square, RotateCcw } from "lucide-react";
-import QuizSession, { type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
+import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
 import CountWheel from "@/components/CountWheel";
 import {
   getWords,
@@ -103,7 +103,10 @@ export default function TestPage() {
         exitText="退出测试"
         onExit={() => setQueue(null)}
         onJudged={handleJudged}
-        onFinish={() => setQueue(null)}
+        onFinish={() => {
+          celebrateRain();
+          setQueue(null);
+        }}
       />
     );
   }
@@ -147,11 +150,27 @@ export default function TestPage() {
             <RotateCcw className="h-3.5 w-3.5" /> 重置进度
           </button>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/8">
+        <div className="relative mt-3 h-1.5 overflow-visible rounded-full bg-white/8">
           <div
             className="h-full rounded-full bg-gradient-to-r from-cyan-400/60 to-cyan-300 transition-all duration-500"
             style={{ width: stats.total ? `${(stats.tested / stats.total) * 100}%` : "0%" }}
           />
+          {/* 里程碑刻度：25% / 50% / 75% / 100% */}
+          {[25, 50, 75, 100].map((m) => {
+            const reached = stats.total > 0 && stats.tested / stats.total >= m / 100;
+            return (
+              <span
+                key={m}
+                className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all duration-500"
+                style={{
+                  left: `${m}%`,
+                  borderColor: reached ? "rgba(103,232,249,0.8)" : "rgba(255,255,255,0.15)",
+                  background: reached ? "rgba(34,211,238,0.5)" : "#0c1016",
+                  boxShadow: reached ? "0 0 8px rgba(34,211,238,0.5)" : "none",
+                }}
+              />
+            );
+          })}
         </div>
       </div>
 
