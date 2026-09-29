@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createRouter, publicQuery } from "./middleware";
-import { judgeAnswer } from "./ai/judge";
+import { judgeAnswer, defineWord } from "./ai/judge";
 
 export const appRouter = createRouter({
   ping: publicQuery.query(() => ({ ok: true, ts: Date.now() })),
@@ -19,6 +19,11 @@ export const appRouter = createRouter({
       }),
     )
     .mutation(({ input }) => judgeAnswer(input.word.trim(), input.answer.trim(), input.meanings)),
+
+  // 反向测试：为单词生成中文题干（词库没有释义时由 AI 兜底）
+  define: publicQuery
+    .input(z.object({ word: z.string().min(1).max(100) }))
+    .mutation(({ input }) => defineWord(input.word.trim())),
 });
 
 export type AppRouter = typeof appRouter;

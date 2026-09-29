@@ -14,6 +14,7 @@ import {
 } from "@/lib/store";
 
 type Mode = "all" | "pick";
+type Direction = "en2zh" | "zh2en";
 
 export default function TestPage() {
   const [words, setWords] = useState<WordItem[]>([]);
@@ -21,6 +22,7 @@ export default function TestPage() {
 
   // 设置面板状态
   const [mode, setMode] = useState<Mode>("all");
+  const [direction, setDirection] = useState<Direction>("en2zh");
   const [count, setCount] = useState(10);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -99,6 +101,7 @@ export default function TestPage() {
     return (
       <QuizSession
         queue={queue}
+        direction={direction}
         progressText={`本轮第 ${stats.round} 轮 · 已测 ${stats.tested} / ${stats.total}`}
         exitText="退出测试"
         onExit={() => setQueue(null)}
@@ -176,6 +179,29 @@ export default function TestPage() {
 
       {/* 模式选择 */}
       <div className="glass-card rounded-2xl p-6">
+        {/* 方向选择：英→中 / 中→英 */}
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          {(
+            [
+              { v: "en2zh", label: "英 → 中", desc: "看英文写中文释义" },
+              { v: "zh2en", label: "中 → 英", desc: "看中文写英文单词" },
+            ] as const
+          ).map((d) => (
+            <button
+              key={d.v}
+              onClick={() => setDirection(d.v)}
+              className={`min-h-[56px] rounded-xl border px-3 text-sm tracking-wide transition-all duration-300 ${
+                direction === d.v
+                  ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
+                  : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              <span className="block">{d.label}</span>
+              <span className="mt-0.5 block text-[11px] font-normal text-white/35">{d.desc}</span>
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => setMode("all")}

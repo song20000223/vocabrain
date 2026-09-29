@@ -144,3 +144,72 @@ export async function judgeAnswer(word: string, answer: string, meanings?: Meani
     throw new Error(classified.message || "判分失败，请稍后重试");
   }
 }
+
+// ---------- 反向测试：AI 生成中文题干 ----------
+
+const defineSchema = z.object({
+  definition: z.string(), // 如 "n. 高原；平稳期"
+});
+
+export type DefineResult = z.infer<typeof defineSchema>;
+
+function buildDefinePrompt(word: string): string {
+  return `请给出英文单词「${word}」的中文释义，用于词汇测试的题干。
+
+要求：
+1. 使用雅思考试中常见的中文释义；
+2. 优先学术语境，不要口语化或冷门释义；
+3. 有多个词性/义项时，只保留雅思最常考的一到两个；
+4. 带上词性缩写（n. v. adj. adv. 等），格式如："n. 高原；平稳期"；
+5. 简洁，不超过 30 字。
+
+请严格只输出一个 JSON 对象：{"definition": "词性 释义"}`;
+}
+
+/** 直连 DeepSeek 生成释义 */
+async function defineWithDeepSeek(word: string, apiKey: string): Promise<DefineResult> {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [{ role: "user", content: buildDefinePrompt(word) }],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    }),
+  });
+  if (!res.ok) throw new Error(`DeepSeek 请求失败（HTTP ${res.status}）`);
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  const parsed = defineSchema.safeParse(JSON.parse(data.choices?.[0]?.message?.content ?? ""));
+  if (!parsed.success) throw new Error("AI 返回格式异常，请重试");
+  return parsed.data;
+}
+
+/** 平台网关生成释义 */
+async function defineWithGateway(word: string): Promise<DefineResult> {
+  const provider = createOpenAICompatible({
+    name: "kimi-gw",
+    baseURL: readEnv("KIMI_AGENTGW_BASE_URL")!,
+    apiKey: readEnv("KIMI_AGENTGW_API_KEY")!,
+    supportsStructuredOutputs: true,
+  });
+  const { defaultModelId } = await listModels();
+  const { object } = await generateObject({
+    model: provider(defaultModelId),
+    schema: defineSchema,
+    prompt: buildDefinePrompt(word),
+  });
+  return object;
+}
+
+/** 为单词生成中文题干（优先 DeepSeek Key，否则平台网关） */
+export async function defineWord(word: string): Promise<DefineResult> {
+  try {
+    const deepseekKey = readEnv("DEEPSEEK_API_KEY");
+    if (deepseekKey) return await defineWithDeepSeek(word, deepseekKey);
+    return await defineWithGateway(word);
+  } catch (err) {
+    const classified = classifyAiError(err);
+    throw new Error(classified.message || "释义生成失败，请稍后重试");
+  }
+}

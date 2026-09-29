@@ -21,6 +21,13 @@ interface JudgeRequest {
 }
 
 /**
+ * 反向模式（中→英）拼写比对：忽略大小写与多余空格。
+ */
+export function checkSpelling(answer: string, correctWord: string): boolean {
+  return answer.trim().toLowerCase().replace(/\s+/g, " ") === correctWord.trim().toLowerCase();
+}
+
+/**
  * 本地快速判定：返回答案确定的结果，无法确定则返回 null（交给 AI）。
  * 只在词库有自定义释义时启用；规则：答案命中任一义项的核心片段即算对。
  */
