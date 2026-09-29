@@ -18,11 +18,27 @@ const judgeSchema = z.object({
 
 export type JudgeResult = z.infer<typeof judgeSchema>;
 
-function buildPrompt(word: string, answer: string): string {
+export interface MeaningInput {
+  pos: string;
+  definitions: string[];
+}
+
+function buildPrompt(word: string, answer: string, meanings?: MeaningInput[]): string {
+  const userStandard =
+    meanings && meanings.length > 0
+      ? `\n学生词库中的自定义释义（这是本次判分的标准答案）：\n${meanings
+          .map((m) => `${m.pos ? m.pos + " " : ""}${m.definitions.join("；")}`)
+          .join("\n")}
+
+补充规则（自定义释义优先）：
+- 以上面学生提供的释义为标准答案，学生写对其中任意一个义项就算正确；
+- 即使学生的写法与上面的释义用字不同，只要意思对应上任意一个义项就算对。`
+      : "";
+
   return `你是一位雅思英语老师，正在批改学生的单词默写。
 
 英文单词：${word}
-学生手写的中文释义：${answer}
+学生手写的中文释义：${answer}${userStandard}
 
 判断规则（宽松）：
 - 只要学生的答案包含了单词的核心意思，就算正确；
@@ -30,7 +46,7 @@ function buildPrompt(word: string, answer: string): string {
 - 不要求一字不差，不要求包含所有义项；
 - 只有完全偏离单词意思才算错误。
 
-判断规则补充（雅思标准）：
+判断规则补充（雅思标准，词库没有自定义释义时适用）：
 1. 请使用雅思考试中常见的中文释义作为标准；
 2. 优先采用学术语境下的释义，而不是口语化或冷门释义；
 3. 如果单词有多个义项，只判断雅思考试中最常考的那一个；
@@ -65,7 +81,7 @@ function readEnv(key: string): string | undefined {
 }
 
 /** 模式一：直连 DeepSeek（用户自己的 Key，仅存服务端 .env.local） */
-async function judgeWithDeepSeek(word: string, answer: string, apiKey: string): Promise<JudgeResult> {
+async function judgeWithDeepSeek(word: string, answer: string, apiKey: string, meanings?: MeaningInput[]): Promise<JudgeResult> {
   const res = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
     headers: {
@@ -74,7 +90,7 @@ async function judgeWithDeepSeek(word: string, answer: string, apiKey: string): 
     },
     body: JSON.stringify({
       model: "deepseek-chat",
-      messages: [{ role: "user", content: buildPrompt(word, answer) }],
+      messages: [{ role: "user", content: buildPrompt(word, answer, meanings) }],
       response_format: { type: "json_object" },
       temperature: 0.3,
     }),
@@ -96,7 +112,7 @@ async function judgeWithDeepSeek(word: string, answer: string, apiKey: string): 
 }
 
 /** 模式二：平台内置 AI 网关（无需配置 Key） */
-async function judgeWithGateway(word: string, answer: string): Promise<JudgeResult> {
+async function judgeWithGateway(word: string, answer: string, meanings?: MeaningInput[]): Promise<JudgeResult> {
   const provider = createOpenAICompatible({
     name: "kimi-gw",
     baseURL: readEnv("KIMI_AGENTGW_BASE_URL")!,
@@ -107,16 +123,16 @@ async function judgeWithGateway(word: string, answer: string): Promise<JudgeResu
   const { object } = await generateObject({
     model: provider(defaultModelId),
     schema: judgeSchema,
-    prompt: buildPrompt(word, answer),
+    prompt: buildPrompt(word, answer, meanings),
   });
   return object;
 }
 
-export async function judgeAnswer(word: string, answer: string): Promise<JudgeResult> {
+export async function judgeAnswer(word: string, answer: string, meanings?: MeaningInput[]): Promise<JudgeResult> {
   try {
     const deepseekKey = readEnv("DEEPSEEK_API_KEY");
-    if (deepseekKey) return await judgeWithDeepSeek(word, answer, deepseekKey);
-    return await judgeWithGateway(word, answer);
+    if (deepseekKey) return await judgeWithDeepSeek(word, answer, deepseekKey, meanings);
+    return await judgeWithGateway(word, answer, meanings);
   } catch (err) {
     const classified = classifyAiError(err);
     if (classified instanceof AiUnavailable) {

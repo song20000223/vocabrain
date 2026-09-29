@@ -1,179 +1,298 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, XCircle, Loader2, RefreshCw, SkipForward } from "lucide-react";
-import { trpc } from "@/providers/trpc";
-import { getWords, addToWrongBook, type WordItem } from "@/lib/store";
+import { Play, CheckSquare, Square, RotateCcw } from "lucide-react";
+import QuizSession, { type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
+import {
+  getWords,
+  addToWrongBook,
+  pickNextWord,
+  markTestedInRound,
+  roundStats,
+  resetProgress,
+  type WordItem,
+} from "@/lib/store";
 
-interface JudgeResult {
-  correct: boolean;
-  standardMeaning: string;
-  comment: string;
-}
+type Mode = "all" | "pick";
 
 export default function TestPage() {
-  const [current, setCurrent] = useState<WordItem | null>(null);
-  const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<JudgeResult | null>(null);
-  const [error, setError] = useState("");
-  const [empty, setEmpty] = useState(false);
+  const [words, setWords] = useState<WordItem[]>([]);
+  const [stats, setStats] = useState(roundStats());
 
-  const judge = trpc.judge.useMutation();
+  // 设置面板状态
+  const [mode, setMode] = useState<Mode>("all");
+  const [count, setCount] = useState(10);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [rangeText, setRangeText] = useState("");
 
-  const nextWord = useCallback(() => {
-    const words = getWords();
-    if (words.length === 0) {
-      setEmpty(true);
-      setCurrent(null);
-      return;
-    }
-    setEmpty(false);
-    const pool = words.filter((w) => w.id !== current?.id);
-    const list = pool.length > 0 ? pool : words;
-    setCurrent(list[Math.floor(Math.random() * list.length)]);
-    setAnswer("");
-    setResult(null);
-    setError("");
-  }, [current?.id]);
+  // 测试进行状态
+  const [queue, setQueue] = useState<QuizWord[] | null>(null);
 
+  const refresh = () => {
+    setWords(getWords());
+    setStats(roundStats());
+  };
   useEffect(() => {
-    nextWord();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refresh();
+    window.addEventListener("vocab-store-change", refresh);
+    return () => window.removeEventListener("vocab-store-change", refresh);
   }, []);
 
-  const submit = async () => {
-    if (!current || !answer.trim() || judge.isPending) return;
-    setError("");
-    try {
-      const res = await judge.mutateAsync({ word: current.word, answer: answer.trim() });
-      setResult(res);
-      if (!res.correct) {
-        addToWrongBook(current, answer.trim(), res.comment);
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "判分失败，请稍后重试");
+  const testable = useMemo(() => words.filter((w) => !w.excluded), [words]);
+
+  // ---------- 开始测试 ----------
+
+  const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+
+  const startAll = () => {
+    // 全库模式：按进度队列连续抽 N 个（优先未测）
+    const picked: QuizWord[] = [];
+    let lastId: string | undefined;
+    for (let i = 0; i < count; i++) {
+      const w = pickNextWord(lastId);
+      if (!w) break;
+      picked.push(w);
+      lastId = w.id;
+    }
+    if (picked.length === 0) return;
+    setQueue(picked);
+  };
+
+  const startPicked = () => {
+    const pool = testable.filter((w) => selected.has(w.id));
+    if (pool.length === 0) return;
+    setQueue(shuffle(pool));
+    setPickerOpen(false);
+  };
+
+  // ---------- 判分回调 ----------
+
+  const handleJudged = (word: QuizWord, answer: string, result: QuizJudgeResult) => {
+    markTestedInRound(word.id); // 指定模式也计入全库进度
+    if (!result.correct) {
+      const full = words.find((w) => w.id === word.id);
+      addToWrongBook(full ?? { ...word, testedRounds: 0, lastTestedAt: null, excluded: false }, answer, result.comment);
     }
   };
 
-  if (empty) {
+  // ---------- 快捷选择 ----------
+
+  const selectAll = () => setSelected(new Set(testable.map((w) => w.id)));
+  const selectNone = () => setSelected(new Set());
+  const applyRange = () => {
+    const m = rangeText.match(/^\s*(\d+)\s*[-–—]\s*(\d+)\s*$/);
+    if (!m) return;
+    const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
+    const [lo, hi] = [Math.min(a, b), Math.max(a, b)];
+    const next = new Set(selected);
+    testable.forEach((w, i) => {
+      const seq = i + 1;
+      if (seq >= lo && seq <= hi) next.add(w.id);
+    });
+    setSelected(next);
+  };
+
+  // ---------- 测试中 ----------
+
+  if (queue) {
+    return (
+      <QuizSession
+        queue={queue}
+        progressText={`本轮第 ${stats.round} 轮 · 已测 ${stats.tested} / ${stats.total}`}
+        exitText="退出测试"
+        onExit={() => setQueue(null)}
+        onJudged={handleJudged}
+        onFinish={() => setQueue(null)}
+      />
+    );
+  }
+
+  // ---------- 空词库 ----------
+
+  if (testable.length === 0) {
     return (
       <div className="flex flex-col items-center gap-5 pt-24 text-center">
-        <p className="tracking-wider text-white/45">词库是空的，先去添加一些单词吧。</p>
+        <p className="tracking-wider text-white/45">
+          {words.length === 0 ? "词库是空的，先去添加一些单词吧。" : "所有单词都被标记为「不再测」了。"}
+        </p>
         <Link to="/words" className="glow-btn min-h-[44px] rounded-full px-8 text-sm tracking-wider">
-          去添加单词
+          去单词管理
         </Link>
       </div>
     );
   }
 
+  // ---------- 设置面板 ----------
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
-      <p className="eyebrow text-center">Write the Chinese meaning</p>
-
-      {/* 单词卡片 */}
-      <div className="glass-card relative overflow-hidden rounded-3xl px-6 py-16 text-center">
-        <div
-          className="pointer-events-none absolute -top-20 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full"
-          style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.18), transparent)" }}
-        />
-        <span className="hero-title relative text-5xl tracking-tight sm:text-6xl">
-          {current?.word}
-        </span>
+      <div className="text-center">
+        <p className="eyebrow">Test Setup</p>
+        <h1 className="hero-title mt-3 text-4xl sm:text-5xl">单词测试</h1>
       </div>
 
-      {/* 作答区 */}
-      <textarea
-        value={answer}
-        onChange={(e) => setAnswer(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            if (result) nextWord();
-            else submit();
-          }
-        }}
-        placeholder="在这里手写中文释义……（回车提交）"
-        rows={3}
-        disabled={!!result}
-        className="glass-input w-full resize-none rounded-2xl p-4 tracking-wider disabled:opacity-60"
-      />
-
-      {error && (
-        <div className="glass-card rounded-2xl border-red-400/25 p-4 text-sm tracking-wider text-red-200">
-          {error}
-        </div>
-      )}
-
-      {/* 判定结果 */}
-      {result && (
-        <div
-          className="glass-card rounded-2xl p-6"
-          style={{
-            borderColor: result.correct
-              ? "rgba(52,211,153,0.3)"
-              : "rgba(248,113,113,0.3)",
-            boxShadow: result.correct
-              ? "0 0 30px rgba(52,211,153,0.1), inset 0 1px 0 rgba(255,255,255,0.08)"
-              : "0 0 30px rgba(248,113,113,0.1), inset 0 1px 0 rgba(255,255,255,0.08)",
-          }}
-        >
-          <div className="flex items-center gap-2">
-            {result.correct ? (
-              <CheckCircle2 className="h-5 w-5 text-emerald-300" />
-            ) : (
-              <XCircle className="h-5 w-5 text-red-300" />
-            )}
-            <span
-              className={`font-medium tracking-wider ${
-                result.correct ? "text-emerald-200" : "text-red-200"
-              }`}
-            >
-              {result.correct ? "回答正确" : "回答错误（已加入错题本）"}
-            </span>
-          </div>
-          <p className="mt-4 text-sm leading-relaxed text-white/75">
-            <span className="tracking-[0.2em] text-white/35">标准释义　</span>
-            {result.standardMeaning}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-white/75">
-            <span className="tracking-[0.2em] text-white/35">评语　　</span>
-            {result.comment}
-          </p>
-        </div>
-      )}
-
-      {/* 按钮 */}
-      <div className="flex gap-3">
-        {!result ? (
-          <>
-            <button
-              onClick={submit}
-              disabled={!answer.trim() || judge.isPending}
-              className="glow-btn min-h-[52px] flex-1 rounded-full text-sm font-medium tracking-[0.2em]"
-            >
-              {judge.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> AI 判分中…
-                </>
-              ) : (
-                "提交答案"
-              )}
-            </button>
-            <button
-              onClick={nextWord}
-              className="ghost-btn min-h-[52px] px-6 text-sm tracking-wider"
-            >
-              <SkipForward className="h-4 w-4" /> 换一个
-            </button>
-          </>
-        ) : (
+      {/* 本轮进度 */}
+      <div className="glass-card rounded-2xl p-5">
+        <div className="flex items-center justify-between text-sm">
+          <span className="tracking-wider text-white/45">
+            第 {stats.round} 轮 · 已测 <span className="text-cyan-200">{stats.tested}</span> / {stats.total}
+          </span>
           <button
-            onClick={nextWord}
-            className="glow-btn min-h-[52px] flex-1 rounded-full text-sm font-medium tracking-[0.2em]"
+            onClick={() => {
+              if (window.confirm("重置全部测试进度，从第 1 轮重新开始？")) resetProgress();
+            }}
+            className="flex min-h-[36px] items-center gap-1.5 text-xs tracking-wider text-white/35 transition-colors hover:text-white"
           >
-            <RefreshCw className="h-4 w-4" /> 下一个单词
+            <RotateCcw className="h-3.5 w-3.5" /> 重置进度
           </button>
-        )}
+        </div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/8">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-cyan-400/60 to-cyan-300 transition-all duration-500"
+            style={{ width: stats.total ? `${(stats.tested / stats.total) * 100}%` : "0%" }}
+          />
+        </div>
       </div>
+
+      {/* 模式选择 */}
+      <div className="glass-card rounded-2xl p-6">
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setMode("all")}
+            className={`min-h-[56px] rounded-xl border text-sm tracking-wider transition-all duration-300 ${
+              mode === "all"
+                ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.15)]"
+                : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
+            }`}
+          >
+            全库测试
+          </button>
+          <button
+            onClick={() => setMode("pick")}
+            className={`min-h-[56px] rounded-xl border text-sm tracking-wider transition-all duration-300 ${
+              mode === "pick"
+                ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.15)]"
+                : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
+            }`}
+          >
+            指定单词测试
+          </button>
+        </div>
+
+        {mode === "all" ? (
+          <div className="mt-5">
+            <label className="text-sm tracking-wider text-white/45">本次测试数量</label>
+            <div className="mt-2 flex gap-2">
+              {[5, 10, 20, 30].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setCount(n)}
+                  className={`min-h-[44px] flex-1 rounded-lg border font-mono text-sm transition-all duration-300 ${
+                    count === n
+                      ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-100"
+                      : "border-white/10 text-white/45 hover:text-white"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs leading-relaxed tracking-wider text-white/30">
+              优先抽本轮没测过的单词；全部测过一遍后自动开启新一轮。
+            </p>
+          </div>
+        ) : (
+          <div className="mt-5">
+            <button
+              onClick={() => setPickerOpen(true)}
+              className="glass-input flex min-h-[48px] w-full items-center justify-between rounded-xl px-4 text-sm tracking-wider"
+            >
+              <span className={selected.size ? "text-white" : "text-white/35"}>
+                {selected.size ? `已选 ${selected.size} 个单词` : "点击选择单词…"}
+              </span>
+              <CheckSquare className="h-4 w-4 text-cyan-300/60" />
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={mode === "all" ? startAll : startPicked}
+          disabled={mode === "pick" && selected.size === 0}
+          className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.25em]"
+        >
+          <Play className="h-4 w-4" /> 开始测试
+        </button>
+      </div>
+
+      {/* 指定单词多选面板（弹层） */}
+      {pickerOpen && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center" onClick={() => setPickerOpen(false)}>
+          <div
+            className="glass-nav flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl p-6 sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold tracking-wider text-white">选择单词（{selected.size} / {testable.length}）</h2>
+              <button onClick={() => setPickerOpen(false)} className="min-h-[36px] px-3 text-sm text-white/45 hover:text-white">
+                完成
+              </button>
+            </div>
+
+            {/* 快捷选择 */}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button onClick={selectAll} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wider">全选</button>
+              <button onClick={selectNone} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wider">全不选</button>
+              <div className="flex items-center gap-2">
+                <input
+                  value={rangeText}
+                  onChange={(e) => setRangeText(e.target.value)}
+                  placeholder="如 1-100"
+                  className="glass-input min-h-[36px] w-24 rounded-lg px-3 font-mono text-xs"
+                />
+                <button onClick={applyRange} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wider">
+                  按序号选
+                </button>
+              </div>
+            </div>
+
+            {/* 单词清单 */}
+            <ul className="mt-4 flex-1 divide-y divide-white/5 overflow-y-auto">
+              {testable.map((w, i) => {
+                const checked = selected.has(w.id);
+                return (
+                  <li key={w.id}>
+                    <button
+                      onClick={() => {
+                        const next = new Set(selected);
+                        if (checked) next.delete(w.id);
+                        else next.add(w.id);
+                        setSelected(next);
+                      }}
+                      className="flex min-h-[48px] w-full items-center gap-3 px-1 text-left"
+                    >
+                      {checked ? (
+                        <CheckSquare className="h-4 w-4 shrink-0 text-cyan-300" />
+                      ) : (
+                        <Square className="h-4 w-4 shrink-0 text-white/25" />
+                      )}
+                      <span className="w-8 shrink-0 font-mono text-xs text-white/30">{i + 1}</span>
+                      <span className="font-mono text-sm text-white">{w.word}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <button
+              onClick={startPicked}
+              disabled={selected.size === 0}
+              className="glow-btn mt-4 min-h-[48px] w-full rounded-full text-sm tracking-[0.2em]"
+            >
+              开始测试（{selected.size} 个）
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

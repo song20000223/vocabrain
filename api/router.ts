@@ -11,9 +11,14 @@ export const appRouter = createRouter({
       z.object({
         word: z.string().min(1).max(100),
         answer: z.string().min(1).max(500),
+        // 词库自定义释义（可选）：有则作为判分标准答案
+        meanings: z
+          .array(z.object({ pos: z.string().max(20), definitions: z.array(z.string().max(200)).max(20) }))
+          .max(10)
+          .optional(),
       }),
     )
-    .mutation(({ input }) => judgeAnswer(input.word.trim(), input.answer.trim())),
+    .mutation(({ input }) => judgeAnswer(input.word.trim(), input.answer.trim(), input.meanings)),
 });
 
 export type AppRouter = typeof appRouter;
