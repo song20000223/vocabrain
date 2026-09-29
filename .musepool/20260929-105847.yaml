@@ -1,0 +1,210 @@
+items:
+- short_id: FpA0MHDV
+  seed: |
+    # Narrative
+
+    A music artist's personal website designed as a functional parody of the iOS Phone app's "Recents" call log. The entire site presents as a smartphone interface where each call entry maps to different content: music videos open a YouTube-style player overlay, merchandise links to a shop, agent contact opens email, social links open external profiles. The narrative flow is a single scrollable list with interactive rows that trigger app-like transitions.
+
+    # Tech Stack
+
+    Vanilla HTML/CSS/JS with jQuery for DOM manipulation. GSAP TweenMax for slide transitions between "apps". JSON-driven content configuration for call entries. No framework, hand-crafted.
+
+    # Layout
+
+    Full-viewport mobile-first layout. Single-column list with fixed header (70px height, `#f0f0f0` background). Each call row is 64px height with 35px left indent for content. Hairline borders using 1px gradient technique (`#c8c8c8` to transparent). Absolute positioning for iconography and timestamps. Secondary views (video player, countdown) slide in from right using `left: 100vw` to `left: 0vw` animation.
+
+    # Typography
+
+    System font stack: `-apple-system, BlinkMacSystemFont, helvetica`. Header "Recents" at 38px with 700 weight. Call names at 1.15em (≈18.4px) with 500 weight. Type labels and timestamps at 100 weight in `#8a898f`. Missed calls in `#ff3232` (iOS system red).
+
+    # Color
+
+    Pure iOS palette: white (`#ffffff`) background, light gray header (`#f0f0f0`), medium gray text (`#8a898f`), iOS red for missed (`#ff3232`), iOS blue for info icons (`#007AFF` in SVG). Video app uses dark chrome (`#222222` header, `#141414` background for countdown). No custom brand colors—entirely mimics native iOS system colors.
+
+    # Imagery
+
+    SVG iconography mimicking iOS Phone app: outgoing call arrow, FaceTime video camera icon, info "i" in circle. Icons are simple line-art SVG with `#cdcdcd` or `#ccc` fills. No photography or illustrations—pure UI chrome.
+
+    # Components
+
+    Call row component: 64px fixed height, left-aligned icon (20% height, 11px from left), name and type stacked vertically (35px left indent), timestamp right-aligned (50px from right), info icon at far right (15px from right, 35% height). Hairline separator using CSS gradient background. Hover/tap reveals link target. Back button in sub-views uses inverted arrow + "Phone" text.
+
+    # Motion
+
+    App-style slide transitions using GSAP TweenMax. Duration 0.2s with `Power1.easeInOut` easing. Video and countdown apps slide in from right (`left: 100vw` to `left: 0vw`) while main phone view slides left (`left: 0vw` to `left: -100vw`). Reverse animation on back navigation. See references/motion.md for implementation.
+
+    # Algorithms
+
+    Standard implementation, no special design.
+
+    # Material
+
+    Hairline borders using gradient technique: `linear-gradient(to bottom, #c8c8c8 0%, #c8c8c8 51%, transparent 51%)` with `background-size: 100% 1px`—creates crisp 1px line that works across DPIs. Semi-transparent body background `rgba(255, 255, 255, 0.7)` for subtle layering.
+
+    # Craft
+
+    Scrollbar hidden via `::-webkit-scrollbar { display: none; }`. Touch scrolling enabled with `-webkit-overflow-scrolling: touch`. Info icon uses native iOS blue (`#007AFF`). Emoji used in call names (📦📦, 💀) for visual personality. Missed call count in parentheses following iOS convention.
+
+    # Coherence
+
+    The design succeeds through absolute commitment to the iOS metaphor—every pixel, color, and interaction pattern mirrors the native Phone app. The joke/personality emerges from the content (celebrity names as "callers", emoji flourishes) while the container remains perfectly serious system UI. The GSAP transitions complete the app illusion by matching iOS navigation physics.
+  references:
+        motion: "# Motion Reference\n\n## What\n\nApp-style slide transitions between \"screens\" (Phone Recents list → Video player → Countdown timer). The motion mimics iOS navigation physics: views slide in from right, push current view left, reverse on back navigation.\n\n## Why Hard to Reproduce\n\nRequires coordinated dual-element animation (incoming view + outgoing view) with proper z-index layering and display toggling. The timing and easing must match iOS feel or the illusion breaks.\n\n## Implementation\n\n**Library**: GSAP TweenMax (legacy version, minified in `TweenMax.min.js`)\n\n**Duration**: 0.2s (200ms) — fast, responsive\n\n**Easing**: `Power1.easeInOut` — subtle acceleration curve matching iOS\n\n**Transition Logic** (from `all.js`):\n\n```javascript\nvar transitionDuration = 0.2;\n\n// To video app\nTweenMax.to($(\"#video-app\"), transitionDuration, {\n  left: \"0vw\",\n  ease: Power1.easeInOut\n});\nTweenMax.to($(\"#body, #header\"), transitionDuration, {\n  left: \"-100vw\",\n  ease: Power1.easeInOut\n});\n\n// To countdown app  \nTweenMax.to($(\"#countdown-app\"), transitionDuration, {\n  left: \"0vw\",\n  ease: Power1.easeInOut\n});\n\n// Back to phone (body)\nTweenMax.to($(\"#countdown-app\"), transitionDuration, {\n  left: \"100vw\",\n  ease: Power1.easeInOut\n});\nTweenMax.to($(\"#video-app\"), transitionDuration, {\n  left: \"100vw\",\n  ease: Power1.easeInOut\n});\nTweenMax.to($(\"#body, #header\"), transitionDuration, {\n  left: \"0vw\",\n  ease: 
+      Power1.easeInOut\n\
+      });\n```\n\n**CSS Setup**:\n- All app containers: `position: absolute`, `width: 100%`, `height: 100%`\n- Hidden apps: `left: 100vw` (off-screen right)\n- Visible app: `left: 0vw`\n- z-index layering: video/countdown at z-index 20, header at z-index 10, body at z-index 1\n\n**Display Toggle Pattern**:\n1. Show target element (`display: block`)\n2. Animate from `left: 100vw` to `left: 0vw`\n3. After animation, hide source element (`display: none`)\n4. Reverse for back navigation\n\n## Reusable Move\n\n`gsap_slide_transition` — App-style screen-to-screen navigation with dual-element slide. Key parameters: 0.2s duration, Power1.easeInOut, 100vw travel distance, coordinated display toggling.\n"
+- short_id: kMlXKdCY
+  seed: |
+    # Narrative
+
+    A music festival site for a major summer event held in two cities. The narrative flows from a vibrant hero carousel showcasing artist lineups through ticket CTAs, news updates, lineup posters, embedded videos, and sponsor recognition. The design intent is to evoke the energy and atmosphere of an outdoor summer music festival through layered visuals, warm sunset colors, and playful animated elements.
+
+    # Tech Stack
+
+    WordPress with custom theme. jQuery for interactions. Slick carousel for the main visual slider. Google Fonts (Antonio, Noto Sans JP). CSS custom properties for animation timing. No build tool evident—vanilla CSS with minified libraries.
+
+    # Layout
+
+    Fixed glassmorphism header (30px inset, 80px height, `backdrop-filter: blur(9px)`) with centered content area (`max-width: 1140px`). Hero section uses a full-width carousel with `centerMode: true` and `centerPadding: 9%` creating a partial-peek effect. Content sections stack vertically with generous padding (`min(18vw, 180px)` top for news). Ticket CTA uses a frosted glass container with 1px white border. Two-column grid for news items (49.2% width each). Side-mounted social icons on desktop (absolute positioned, right: 30px).
+
+    # Typography
+
+    Dual-font system: **Antonio** (condensed sans-serif, 100-700 weight range) for headlines, navigation, dates, and festival branding; **Noto Sans JP** for body text and multilingual content. Headlines use `font-weight: 600` with tight line-height (1.4). Date styling uses uppercase with letter-spacing (0.1em-0.16em). Hero carousel text uses festival poster graphics rather than live text.
+
+    # Color
+
+    Sunset gradient palette: warm oranges (#fa7321, #e66b00) and cool blues (#0fb3f7, #0089ba) as primary accents. Background uses rotating gradient images (pink-orange-blue-purple transitions). Text is predominantly white (#fff) against dark/gradient backgrounds. Glassmorphism elements use `rgba(255,255,255,0.20)` with white 1px borders. News cards use `rgba(255,255,255,0.15)` semi-transparent backgrounds.
+
+    # Imagery
+
+    Hero carousel displays festival lineup posters as JPG banners (artist photos + gradient overlays with typography). Custom illustrated background layer (`bg_illust.png`, 2400x1509px) depicts festival venues—stadium on left, outdoor stage on right, city skyline with landmark tower, ferris wheel element. Background gradient images (2400x2400px) provide color atmosphere. News thumbnails use 35% width with 24% padding-top aspect ratio and `object-fit: cover`.
+
+    # Components
+
+    **Header**: Glassmorphism pill shape (`border-radius: min(2vw, 10px)`), fixed position with 30px inset from edges. Logo + date on left, navigation with dropdown carets (CSS border triangles) on right. Language switcher as white pill button.
+
+    **Buttons**: Ticket CTAs use city-specific background images with gradient fallback colors. Rounded corners (8px), bold text, box-shadow.
+
+    **Carousel**: Slick-based with custom dot styling (10px white circles, 0.5 opacity inactive). Center mode reveals adjacent slides.
+
+    **Social icons**: Custom icon font (`sns_ico`) in vertical column with glassmorphism container (`border-radius: 100px`).
+
+    # Motion
+
+    Layered animation system: **Background**—3 gradient images cycle with 4s crossfade (`bgFade` keyframes). **Illustrated layer**—fixed position illustration with parallax feel. **Ferris wheel**—28% width wheel at bottom-right, 120s continuous rotation (`wheel01` keyframes), with 34 individual gondola elements rotating counter-clockwise. **Balloons**—6 positioned balloon elements with 4s float animation (`cubic-bezier(0.37, 0, 0.63, 1)` easing), scroll-triggered visibility (opacity transition when main content reached). **Light element**—animated glow at 25% left, 66% top with 4s pulse. See `references/motion.md` for full animation specifications.
+
+    # Algorithms
+
+    Scroll-triggered balloon visibility: jQuery checks `$(window).scrollTop()` against main content offset, toggles `.show` class with 1s opacity transition. Carousel uses Slick's centerMode math for slide positioning.
+
+    # Material
+
+    Glassmorphism throughout: `backdrop-filter: blur(9px)` on header, `blur(5px)` on social container, `blur(3px)` on ticket CTA. Semi-transparent white overlays (`rgba(255,255,255,0.15-0.20)`) create depth. Subtle box-shadows on carousel items (`0px 5px 15px 0px rgba(0, 0, 0, 0.35)`).
+
+    # Craft
+
+    Custom scrollbar styling not present (default). Focus states use browser default. Dropdown menus use CSS triangle indicators (border technique). Mobile breakpoint at 820px transforms navigation to hamburger menu with three-line animation (transforms to X). Footer uses `filter: drop-shadow()` for logo glow effect. All images use `object-fit: cover` for consistent cropping.
+
+    # Coherence
+
+    The sunset color palette, glassmorphism treatment, and festival illustration create a cohesive summer music atmosphere. The motion design (slow wheel rotation, gentle floating balloons) reinforces the outdoor festival feeling without overwhelming the content. Typography pairing of Antonio's bold condensed forms with Noto Sans JP ensures readability while maintaining energetic festival branding.
+  references:
+    motion: |
+      # Motion Reference
+
+      ## Background Gradient Crossfade
+
+      Three full-screen gradient images cycle continuously:
+      - Images: `bg_main01.jpg`, `bg_main02.jpg`, `bg_main03.jpg` (2400x2400px)
+      - CSS variable: `--time: 4s`
+      - Animation: `bgFade calc(var(--time) * 3) linear infinite`
+      - Keyframes: 0% opacity 0 → 50% opacity 1 → 100% opacity 0
+      - Staggered delays: 0s, 4s, 8s
+
+      ## Ferris Wheel Animation
+
+      **Container** (`.wheelWrap`):
+      - Position: absolute, bottom: -4%, right: -13%
+      - Width: 28%
+
+      **Wheel rotation** (`.wheel02`):
+      - Animation: `wheel01 120s linear 0s infinite`
+      - Keyframes: 360deg → 0deg (clockwise)
+
+      **Gondolas** (`.wheel03`):
+      - 34 individual elements positioned in circular pattern
+      - Each: `aspect-ratio: 32/40`, width: 4%
+      - Animation: `wheel02 120s linear 0s infinite`
+      - Keyframes: 0deg → 360deg (counter-clockwise, maintaining upright orientation)
+      - Positioning uses percentage-based top/left coordinates forming a circle
+
+      ## Balloon Float Animation
+
+      Six balloon elements with gentle vertical float:
+      - Animation: `baloon 4s cubic-bezier(0.37, 0, 0.63, 1) [delay]s alternate infinite`
+      - Keyframes: translateY(0px) → translateY(-50px)
+      - Staggered delays: 0s, 1s, 2s, 3s, 1s, 0s
+      - Sizes vary: 80px, 80px, 65px, 50px, 56px, 48px
+      - Opacity variants: 1, 1, 1, 0.5, 0.5, 0.3
+
+      **Scroll-triggered visibility**:
+      - Container (`.baloon`): `opacity: 0`, `transition: opacity 1s ease-out`
+      - Scroll check: when `scrollTop > main.offset.top`, add `.show` class
+      - Mobile uses reduced float distance: translateY(-20px)
+
+      ## Light Glow Animation
+
+      Positioned at 25% left, 66% top within illustration:
+      - Background: `bg_light.png` (aspect-ratio: 424/228)
+      - Width: 25%
+      - Animation: `illust 4s linear 0s alternate infinite`
+      - Opacity oscillates: 0 → 1 → 0
+
+      ## Carousel Configuration
+
+      Slick slider settings:
+      ```javascript
+      {
+        autoplay: true,
+        autoplaySpeed: 5000,
+        speed: 1000,
+        arrows: false,
+        dots: true,
+        infinite: true,
+        slidesToShow: 2,
+        slidesToScroll: 1,
+        centerMode: true,
+        centerPadding: '9%',
+        initialSlide: 1
+      }
+      ```
+
+      Mobile breakpoint (820px): slidesToShow: 1, centerPadding: '7%'
+
+      ## Header State Transitions
+
+      - Background transition: `all .3s ease-out`
+      - Default: `rgba(255,255,255,0.20)`
+      - Scrolled state (`.on`): `rgba(0,0,0,0.30)`
+      - Height reduction on mobile when scrolled
+
+      ## Menu Button Animation
+
+      Hamburger to X transformation:
+      - Three span elements
+      - Active state transforms:
+        - First: `translateY(7px) rotate(45deg)`
+        - Second: `opacity: 0`
+        - Third: `translateY(-7px) rotate(-45deg)`
+      - Transition: `all 0.4s`
+
+      ## Reusable Moves
+
+      - `ferris_wheel_with_gondolas` — Large rotating wheel with counter-rotating gondolas maintaining upright position
+      - `glassmorphism_header` — Fixed header with backdrop-filter blur and semi-transparent background
+      - `scroll_triggered_balloon_float` — Floating elements that appear on scroll with gentle vertical oscillation
+      - `gradient_crossfade_background` — Cycling full-screen gradient images with smooth opacity transitions
+      - `center_mode_carousel` — Slick carousel with partial peek of adjacent slides
+
+<system-reminder>
+The risk is not borrowing too little — it is subconsciously simplifying what you borrowed. Cutting corners is forbidden in any form: never replace a reference's technique, material, structure, or motion with a cheaper version of your own. Downgrades follow repeatable patterns (illustrative, not exhaustive): input-driven motion (scroll/pointer/time) → one-shot keyframes or static states; shape-language transformation (morph/clip/mask) → the cheapest properties (scale/translate/opacity); asymmetric layout rhythm (irregular grids, editorial composition) → uniform columns and full-width stacks; layered material (blend/texture/depth) → flat single-layer fills; bespoke vessels (framing devices, illustrated components) → default cards and pills; choreographed sequences (staged, multi-step, gated) → single triggers or fakes; typographic systems (pairing/scale/font features) → swapping the font-family; styled components → library-default skins. If your version is simpler than the reference's, that is a downgrade. Implement at the reference's fidelity.
+</system-reminder>

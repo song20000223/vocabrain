@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Play, CheckSquare, Square, RotateCcw } from "lucide-react";
 import QuizSession, { type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
+import CountWheel from "@/components/CountWheel";
 import {
   getWords,
   addToWrongBook,
@@ -181,24 +182,20 @@ export default function TestPage() {
 
         {mode === "all" ? (
           <div className="mt-5">
-            <label className="text-sm tracking-wider text-white/45">本次测试数量</label>
-            <div className="mt-2 flex gap-2">
-              {[5, 10, 20, 30].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setCount(n)}
-                  className={`min-h-[44px] flex-1 rounded-lg border font-mono text-sm transition-all duration-300 ${
-                    count === n
-                      ? "border-cyan-300/50 bg-cyan-300/10 text-cyan-100"
-                      : "border-white/10 text-white/45 hover:text-white"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+            <label className="text-sm tracking-wider text-white/45">
+              本次测试数量 <span className="text-white/25">（转动选择，1 – {Math.max(testable.length, 30)} 题）</span>
+            </label>
+            <div className="mt-2">
+              <CountWheel
+                min={1}
+                max={Math.max(testable.length, 30)}
+                value={count}
+                onChange={setCount}
+                unit="题"
+              />
             </div>
             <p className="mt-3 text-xs leading-relaxed tracking-wider text-white/30">
-              优先抽本轮没测过的单词；全部测过一遍后自动开启新一轮。
+              优先抽本轮没测过的单词；全部测过一遍后自动开启新一轮。数量超过词库总量时会循环抽词。
             </p>
           </div>
         ) : (
