@@ -75,7 +75,7 @@ export default function TestPage() {
     markTestedInRound(word.id, direction); // 指定模式也计入当前方向的全库进度
     if (!result.correct) {
       const full = words.find((w) => w.id === word.id);
-      addToWrongBook(full ?? { ...word, testedRounds: 0, lastTestedAt: null, excluded: false }, answer, result.comment);
+      addToWrongBook(full ?? { ...word, bookId: "default", testedRounds: 0, lastTestedAt: null, excluded: false }, answer, result.comment);
     }
   };
 

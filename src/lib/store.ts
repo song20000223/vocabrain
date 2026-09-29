@@ -20,9 +20,16 @@ export interface WordItem {
   id: string;
   word: string;
   meanings: MeaningGroup[];
+  bookId: string; // 所属词书
   testedRounds: number; // 累计被测次数
   lastTestedAt: number | null;
   excluded: boolean; // 标记“不再测”
+}
+
+export interface BookItem {
+  id: string;
+  name: string;
+  createdAt: number;
 }
 
 export interface WrongItem {
@@ -46,6 +53,69 @@ export interface Progress {
 const WORDS_KEY = "vocab_words";
 const WRONG_KEY = "vocab_wrong_book";
 const PROGRESS_KEY = "vocab_progress";
+const BOOKS_KEY = "vocab_books";
+export const DEFAULT_BOOK_ID = "default";
+
+// ---------- 词书（文件夹） ----------
+
+export function getBooks(): BookItem[] {
+  try {
+    const raw = localStorage.getItem(BOOKS_KEY);
+    if (!raw) {
+      const def: BookItem[] = [{ id: DEFAULT_BOOK_ID, name: "默认词书", createdAt: Date.now() }];
+      localStorage.setItem(BOOKS_KEY, JSON.stringify(def));
+      return def;
+    }
+    const books = JSON.parse(raw) as BookItem[];
+    if (!books.some((b) => b.id === DEFAULT_BOOK_ID)) {
+      books.unshift({ id: DEFAULT_BOOK_ID, name: "默认词书", createdAt: Date.now() });
+    }
+    return books;
+  } catch {
+    return [{ id: DEFAULT_BOOK_ID, name: "默认词书", createdAt: Date.now() }];
+  }
+}
+
+function saveBooks(books: BookItem[]) {
+  localStorage.setItem(BOOKS_KEY, JSON.stringify(books));
+  notify();
+}
+
+export function addBook(name: string): BookItem | null {
+  const n = name.trim();
+  if (!n) return null;
+  const books = getBooks();
+  if (books.some((b) => b.name === n)) return null;
+  const book: BookItem = { id: uid(), name: n, createdAt: Date.now() };
+  saveBooks([...books, book]);
+  return book;
+}
+
+export function renameBook(id: string, name: string): void {
+  const n = name.trim();
+  if (!n) return;
+  const books = getBooks();
+  const b = books.find((it) => it.id === id);
+  if (b) {
+    b.name = n;
+    saveBooks(books);
+  }
+}
+
+/** 删除词书：里面的单词移到默认词书，不会被删掉 */
+export function removeBook(id: string): void {
+  if (id === DEFAULT_BOOK_ID) return;
+  saveBooks(getBooks().filter((b) => b.id !== id));
+  const words = getWords();
+  let changed = false;
+  for (const w of words) {
+    if (w.bookId === id) {
+      w.bookId = DEFAULT_BOOK_ID;
+      changed = true;
+    }
+  }
+  if (changed) saveWords(words);
+}
 
 const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -60,6 +130,7 @@ interface LegacyWord {
   word: string;
   meaning?: string; // 旧字段
   meanings?: MeaningGroup[];
+  bookId?: string;
   testedRounds?: number;
   lastTestedAt?: number | null;
   excluded?: boolean;
@@ -77,6 +148,7 @@ function migrateWord(raw: LegacyWord): WordItem {
     id: raw.id ?? uid(),
     word: raw.word,
     meanings,
+    bookId: raw.bookId ?? DEFAULT_BOOK_ID,
     testedRounds: raw.testedRounds ?? 0,
     lastTestedAt: raw.lastTestedAt ?? null,
     excluded: raw.excluded ?? false,
@@ -119,6 +191,7 @@ export function getWords(): WordItem[] {
           id: uid(),
           word,
           meanings: [{ pos, definitions: defs }],
+          bookId: DEFAULT_BOOK_ID,
           testedRounds: 0,
           lastTestedAt: null,
           excluded: false,
@@ -139,8 +212,13 @@ function saveWords(words: WordItem[]) {
   notify();
 }
 
-/** 添加单词（可带一个初始义项组）。已存在则合并义项。 */
-export function addWord(word: string, pos = "", definitions: string[] = []): WordItem | null {
+/** 添加单词（可带一个初始义项组，可指定词书）。已存在则合并义项。 */
+export function addWord(
+  word: string,
+  pos = "",
+  definitions: string[] = [],
+  bookId: string = DEFAULT_BOOK_ID,
+): WordItem | null {
   const w = word.trim();
   if (!w) return null;
   const words = getWords();
@@ -161,6 +239,7 @@ export function addWord(word: string, pos = "", definitions: string[] = []): Wor
     id: uid(),
     word: w,
     meanings: pos || defs.length ? [{ pos, definitions: defs }] : [],
+    bookId,
     testedRounds: 0,
     lastTestedAt: null,
     excluded: false,
@@ -169,35 +248,113 @@ export function addWord(word: string, pos = "", definitions: string[] = []): Wor
   return item;
 }
 
-/**
- * 批量导入。每行格式（支持中英文逗号、中文分号）：
- *   plateau,n.,高原；平稳期
- *   plateau,v.,达到平稳状态
- * 同一个单词多行会自动合并成多词性。也兼容旧格式「单词,释义」。返回新增/合并的单词数。
- */
-export function importWords(text: string): number {
-  let touched = 0;
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split(/[,，]/).map((p) => p.trim());
-    let word = "";
-    let pos = "";
-    let defs: string[] = [];
-    if (parts.length >= 3) {
-      // 新格式：单词,词性,义项1；义项2
-      [word, pos] = parts;
-      defs = parts.slice(2).join("，").split(/[;；]/).map((d) => d.trim()).filter(Boolean);
-    } else if (parts.length === 2) {
-      // 旧格式：单词,释义
-      [word] = parts;
-      defs = parts[1].split(/[;；]/).map((d) => d.trim()).filter(Boolean);
-    } else {
-      word = trimmed;
-    }
-    if (word && addWord(word, pos, defs)) touched += 1;
+// 词性前缀，如 "n." "v." "vt." "adj." 等，可连续出现（如 "vt. & vi."）
+const POS_TOKEN = "(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|int|interj|art|abbr|aux|det|phr)\\.";
+const POS_PREFIX_RE = new RegExp(`^\\s*(${POS_TOKEN}(?:\\s*[&/]?\\s*${POS_TOKEN})*)\\s*`, "i");
+// 纯英文单词（允许连字符、撇号）
+const WORD_RE = /^[A-Za-z][A-Za-z\-']*$/;
+
+/** 解析"词性 释义"部分：去掉词性前缀，义项按 ；; 、 切分，去掉句末句号 */
+function parsePosAndDefs(rest: string): { pos: string; defs: string[] } {
+  let pos = "";
+  let body = rest;
+  const m = body.match(POS_PREFIX_RE);
+  if (m) {
+    pos = m[1].trim();
+    body = body.slice(m[0].length);
   }
-  return touched;
+  const defs = body
+    .split(/[;；、]/)
+    .map((d) => d.trim().replace(/[。.]+$/, "").trim())
+    .filter(Boolean);
+  return { pos, defs };
+}
+
+/**
+ * 解析一行导入文本，支持四种常见写法：
+ *   chamber⇥n. 腔, 室; 议院        （制表符 Tab 分隔，词典软件最常见）
+ *   chamber n. 腔, 室; 议院        （空格分隔 + 词性开头）
+ *   plateau,n.,高原；平稳期        （逗号三段式）
+ *   plateau,高原；平稳期           （逗号两段式）
+ *   plateau                        （仅单词）
+ */
+function parseImportLine(line: string): { word: string; pos: string; defs: string[] } | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // 1) Tab 分隔
+  if (trimmed.includes("\t")) {
+    const [w, ...rest] = trimmed.split(/\t+/);
+    if (!WORD_RE.test(w.trim())) return null;
+    const { pos, defs } = parsePosAndDefs(rest.join(" "));
+    return { word: w.trim(), pos, defs };
+  }
+
+  // 2) 空格分隔：单词 + 词性开头的释义（如 "chamber n. 腔, 室"）
+  const sp = trimmed.match(/^(\S+)\s+(.+)$/);
+  if (sp && WORD_RE.test(sp[1]) && POS_PREFIX_RE.test(sp[2])) {
+    const { pos, defs } = parsePosAndDefs(sp[2]);
+    return { word: sp[1], pos, defs };
+  }
+
+  // 3) 逗号格式（第一段必须是纯单词，避免把释义里的逗号当分隔符）
+  const parts = trimmed.split(/[,，]/).map((p) => p.trim());
+  if (parts.length >= 2 && WORD_RE.test(parts[0])) {
+    if (parts.length >= 3 && POS_PREFIX_RE.test(parts[1] + " ")) {
+      const pos = parts[1].match(POS_PREFIX_RE)?.[1].trim() ?? "";
+      const defs = parts
+        .slice(2)
+        .join("，")
+        .split(/[;；、]/)
+        .map((d) => d.trim().replace(/[。.]+$/, ""))
+        .filter(Boolean);
+      return { word: parts[0], pos, defs };
+    }
+    const defs = parts
+      .slice(1)
+      .join("，")
+      .split(/[;；、]/)
+      .map((d) => d.trim().replace(/[。.]+$/, ""))
+      .filter(Boolean);
+    return { word: parts[0], pos: "", defs };
+  }
+
+  // 4) 仅单词
+  if (WORD_RE.test(trimmed)) return { word: trimmed, pos: "", defs: [] };
+  return null;
+}
+
+/**
+ * 批量导入。支持的行格式见 parseImportLine。同一个单词多行自动合并义项。
+ * 返回 { added, skipped }：added 为新增/合并条数，skipped 为无法识别的行数。
+ */
+export function importWords(
+  text: string,
+  bookId: string = DEFAULT_BOOK_ID,
+): { added: number; skipped: number } {
+  let added = 0;
+  let skipped = 0;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const parsed = parseImportLine(line);
+    if (!parsed) {
+      skipped += 1;
+      continue;
+    }
+    if (addWord(parsed.word, parsed.pos, parsed.defs, bookId)) added += 1;
+  }
+  return { added, skipped };
+}
+
+/** 全库检索：按单词或中文释义模糊匹配，返回匹配到的单词 */
+export function searchWords(query: string): WordItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return getWords().filter(
+    (w) =>
+      w.word.toLowerCase().includes(q) ||
+      w.meanings.some((m) => m.definitions.some((d) => d.toLowerCase().includes(q))),
+  );
 }
 
 export function removeWord(id: string): void {
