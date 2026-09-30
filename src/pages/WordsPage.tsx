@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Trash2,
   Upload,
+  Download,
   Ban,
   CircleCheck,
   Search,
@@ -26,6 +27,7 @@ import {
   type MemoItem,
 } from "@/lib/memo";
 import ExportDialog from "@/components/ExportDialog";
+import { exportBackup, validateBackup, applyBackup, type BackupFile } from "@/lib/backup";
 import {
   getWords,
   getBooks,
@@ -406,6 +408,9 @@ export default function WordsPage() {
   const [defs, setDefs] = useState("");
   const [batchText, setBatchText] = useState("");
   const [tip, setTip] = useState("");
+  // 数据备份导入
+  const backupFileRef = useRef<HTMLInputElement>(null);
+  const [pendingBackup, setPendingBackup] = useState<BackupFile | null>(null);
   // 检索
   const [query, setQuery] = useState("");
   // AI 翻译结果：英文输入 → 释义；中文输入 → 候选英文词（词 → 释义）
@@ -501,6 +506,27 @@ export default function WordsPage() {
   const showTip = (msg: string) => {
     setTip(msg);
     window.setTimeout(() => setTip(""), 3500);
+  };
+
+  // 数据备份导入：选文件 → 校验 → 弹覆盖/合并选择
+  const handleBackupFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 允许重复选同一文件
+    if (!file) return;
+    const v = validateBackup(await file.text());
+    if (!v.ok) {
+      showTip(`导入失败：${v.reason}`);
+      return;
+    }
+    setPendingBackup(v.backup);
+  };
+
+  const confirmBackupImport = (mode: "overwrite" | "merge") => {
+    if (!pendingBackup) return;
+    applyBackup(pendingBackup, mode);
+    setPendingBackup(null);
+    window.alert(mode === "overwrite" ? "已覆盖导入，即将刷新页面" : "已合并导入，即将刷新页面");
+    window.location.reload();
   };
 
   const handleCreateBook = () => {
@@ -952,6 +978,36 @@ export default function WordsPage() {
         </button>
       </section>
 
+      {/* 数据备份（全量导出/导入，含单词/词书/备忘录/错题本/设置） */}
+      <section className="glass-card rounded-2xl p-6">
+        <h2 className="font-semibold tracking-wide text-white">数据备份</h2>
+        <p className="mt-2 text-sm leading-relaxed tracking-wide text-white/40">
+          全部数据只存在本浏览器 localStorage，清除浏览器数据会丢失。建议定期导出备份。
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={() => setTip(`已导出 ${exportBackup()}`)}
+            className="ghost-btn min-h-[44px] px-7 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+          >
+            <Download className="h-4 w-4" /> 导出备份
+          </button>
+          <button
+            onClick={() => backupFileRef.current?.click()}
+            className="ghost-btn min-h-[44px] px-7 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+          >
+            <Upload className="h-4 w-4" /> 导入备份
+          </button>
+          <input
+            ref={backupFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            aria-label="选择备份文件"
+            onChange={handleBackupFile}
+          />
+        </div>
+      </section>
+
       {/* 词书列表 */}
       <section>
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1363,6 +1419,39 @@ export default function WordsPage() {
                   : "删除这本词书（章节一并删除，单词保留到默认词书）"}
               </button>
             )}
+          </div>
+        </div>
+      )}
+      {/* 备份导入方式选择 */}
+      {pendingBackup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-card w-full max-w-sm rounded-2xl p-6">
+            <h3 className="font-semibold tracking-wide text-white">选择导入方式</h3>
+            <p className="mt-2 text-sm leading-relaxed tracking-wide text-white/45">
+              备份导出于{" "}
+              {new Date(pendingBackup.exportedAt).toLocaleString("zh-CN")}。
+              合并会保留本地现有数据（冲突以备份为准）；覆盖会清空后恢复为备份内容。
+            </p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                onClick={() => confirmBackupImport("merge")}
+                className="glow-btn min-h-[44px] rounded-full text-sm tracking-wide"
+              >
+                合并导入（保留现有数据）
+              </button>
+              <button
+                onClick={() => confirmBackupImport("overwrite")}
+                className="ghost-btn min-h-[44px] text-sm tracking-wide hover:!border-red-300/40 hover:!text-red-200"
+              >
+                覆盖导入（清空现有数据）
+              </button>
+              <button
+                onClick={() => setPendingBackup(null)}
+                className="min-h-[36px] text-xs tracking-wide text-white/35 hover:text-white/60"
+              >
+                取消
+              </button>
+            </div>
           </div>
         </div>
       )}
