@@ -57,8 +57,11 @@ export default function WrongBookPage() {
         {
           id: word.id,
           word: word.word,
+          type: "word" as const,
           meanings: word.meanings,
           bookId: "default",
+          orderInBook: 0,
+          mastered: false,
           testedRounds: 0,
           lastTestedAt: null,
           excluded: false,

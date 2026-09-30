@@ -16,11 +16,17 @@ export interface MeaningGroup {
   definitions: string[]; // 该词性下的多个义项
 }
 
+export type EntryType = "word" | "phrase";
+
 export interface WordItem {
-  id: string;
-  word: string;
+  id: string; // 全局 id，仅内部使用，不展示给用户
+  word: string; // 单词或词组文本
+  type: EntryType; // 旧数据默认 "word"
   meanings: MeaningGroup[];
   bookId: string; // 所属词书
+  orderInBook: number; // 书内序号：每本词书独立，从 1 开始；删除不回填
+  mastered: boolean; // 已掌握（手动开关，供筛选排除）
+  deleted?: boolean; // 软删除标记：真删单词用；查询/列表/抽选一律过滤。旧数据为 undefined = 未删
   testedRounds: number; // 累计被测次数
   lastTestedAt: number | null;
   excluded: boolean; // 标记“不再测”
@@ -29,7 +35,65 @@ export interface WordItem {
 export interface BookItem {
   id: string;
   name: string;
+  parentId: string | null; // null = 词书层；词书id = 章节层。固定两层，不做第三层
   createdAt: number;
+}
+
+/** 该词书是否为章节（有父级） */
+export function isChapter(book: BookItem): boolean {
+  return book.parentId !== null;
+}
+
+/** 取某词书的章节列表（按创建顺序） */
+export function getChapters(bookId: string): BookItem[] {
+  return getBooks().filter((b) => b.parentId === bookId);
+}
+
+/** 取某节点自身 + 全部后代章节 id（两层结构，后代即子章节） */
+export function getBookWithDescendants(bookId: string): string[] {
+  return [bookId, ...getChapters(bookId).map((c) => c.id)];
+}
+
+/** 删除前的确认信息：空章节直接删；非空需提示单词去向 */
+export function getBookRemovalInfo(id: string): {
+  isChapter: boolean;
+  name: string;
+  parentName: string | null;
+  wordCount: number; // 该节点自身的单词数
+  chapterCount: number; // 词书层：子章节数；章节恒为 0
+  totalWords: number; // 词书层：自身+全部章节单词；章节 = wordCount
+  moveToName: string; // 单词去向（父词书 / 默认词书）
+} | null {
+  const books = getBooks();
+  const target = books.find((b) => b.id === id);
+  if (!target || id === DEFAULT_BOOK_ID || id === PHRASE_BOOK_ID) return null;
+  const isChapter = target.parentId !== null;
+  const words = getWords();
+  const wordCount = words.filter((w) => w.bookId === id).length;
+  if (isChapter) {
+    const parent = books.find((b) => b.id === target.parentId);
+    return {
+      isChapter: true,
+      name: target.name,
+      parentName: parent?.name ?? null,
+      wordCount,
+      chapterCount: 0,
+      totalWords: wordCount,
+      moveToName: parent?.name ?? "默认词书",
+    };
+  }
+  const chapters = getChapters(id);
+  const ids = new Set([id, ...chapters.map((c) => c.id)]);
+  const totalWords = words.filter((w) => ids.has(w.bookId)).length;
+  return {
+    isChapter: false,
+    name: target.name,
+    parentName: null,
+    wordCount,
+    chapterCount: chapters.length,
+    totalWords,
+    moveToName: "默认词书",
+  };
 }
 
 export interface WrongItem {
@@ -41,6 +105,8 @@ export interface WrongItem {
   wrongAt: number;
   wrongCount: number; // 累计答错次数
   corrected: boolean; // 复习时已订正（答对但选择保留）
+  source: "quiz" | "dictation"; // 来源：测试 / 听写（旧数据迁移为 quiz）
+  entryType: EntryType; // 单词 / 词组（旧数据迁移为 word）
 }
 
 export interface Progress {
@@ -54,25 +120,49 @@ const WORDS_KEY = "vocab_words";
 const WRONG_KEY = "vocab_wrong_book";
 const PROGRESS_KEY = "vocab_progress";
 const BOOKS_KEY = "vocab_books";
+const WORDS_BACKUP_KEY = "vocab_words_backup_v1";
 export const DEFAULT_BOOK_ID = "default";
+export const PHRASE_BOOK_ID = "__phrase_book__"; // 内置词组词书，不可删除
 
 // ---------- 词书（文件夹） ----------
 
 export function getBooks(): BookItem[] {
+  const phraseBook: BookItem = {
+    id: PHRASE_BOOK_ID,
+    name: "我的词组",
+    parentId: null,
+    createdAt: Date.now(),
+  };
+  const defaultBook: BookItem = {
+    id: DEFAULT_BOOK_ID,
+    name: "默认词书",
+    parentId: null,
+    createdAt: Date.now(),
+  };
   try {
     const raw = localStorage.getItem(BOOKS_KEY);
     if (!raw) {
-      const def: BookItem[] = [{ id: DEFAULT_BOOK_ID, name: "默认词书", createdAt: Date.now() }];
+      const def: BookItem[] = [defaultBook, phraseBook];
       localStorage.setItem(BOOKS_KEY, JSON.stringify(def));
       return def;
     }
-    const books = JSON.parse(raw) as BookItem[];
+    const books = (JSON.parse(raw) as Array<Omit<BookItem, "parentId"> & { parentId?: string | null }>).map(
+      // 旧词书迁移：补 parentId = null（词书层），不动单词和序号
+      (b) => ({ ...b, parentId: b.parentId ?? null }),
+    );
+    let changed = false;
     if (!books.some((b) => b.id === DEFAULT_BOOK_ID)) {
-      books.unshift({ id: DEFAULT_BOOK_ID, name: "默认词书", createdAt: Date.now() });
+      books.unshift(defaultBook);
+      changed = true;
     }
+    if (!books.some((b) => b.id === PHRASE_BOOK_ID)) {
+      books.push(phraseBook);
+      changed = true;
+    }
+    if (changed) localStorage.setItem(BOOKS_KEY, JSON.stringify(books));
     return books;
   } catch {
-    return [{ id: DEFAULT_BOOK_ID, name: "默认词书", createdAt: Date.now() }];
+    return [defaultBook, phraseBook];
   }
 }
 
@@ -81,12 +171,21 @@ function saveBooks(books: BookItem[]) {
   notify();
 }
 
-export function addBook(name: string): BookItem | null {
+/**
+ * 新建词书/章节。
+ * parentId 为空 → 词书层；传词书 id → 在其下建章节（固定两层：章节下不再建子章节）。
+ */
+export function addBook(name: string, parentId: string | null = null): BookItem | null {
   const n = name.trim();
   if (!n) return null;
   const books = getBooks();
-  if (books.some((b) => b.name === n)) return null;
-  const book: BookItem = { id: uid(), name: n, createdAt: Date.now() };
+  if (books.some((b) => b.name === n && b.parentId === parentId)) return null;
+  // 固定两层：parent 必须是词书层（parentId === null）
+  if (parentId !== null) {
+    const parent = books.find((b) => b.id === parentId);
+    if (!parent || parent.parentId !== null) return null;
+  }
+  const book: BookItem = { id: uid(), name: n, parentId, createdAt: Date.now() };
   saveBooks([...books, book]);
   return book;
 }
@@ -102,15 +201,33 @@ export function renameBook(id: string, name: string): void {
   }
 }
 
-/** 删除词书：里面的单词移到默认词书，不会被删掉 */
+/**
+ * 删除词书/章节（容器操作，单词一律搬走不真删）：
+ *  - 删章节（parentId != null）：章节内单词移入父词书，序号追加到父词书末尾；
+ *  - 删词书（parentId == null）：子章节一并删除，全部单词移入「默认词书」，序号追加到其末尾。
+ * 内置词书「默认词书」「我的词组」不可删除。
+ */
 export function removeBook(id: string): void {
-  if (id === DEFAULT_BOOK_ID) return;
-  saveBooks(getBooks().filter((b) => b.id !== id));
-  const words = getWords();
+  if (id === DEFAULT_BOOK_ID || id === PHRASE_BOOK_ID) return;
+  const books = getBooks();
+  const target = books.find((b) => b.id === id);
+  if (!target) return;
+
+  // 章节 → 单词搬去父词书；词书 → 自身+章节全删，单词搬去默认词书
+  const doomedBookIds = target.parentId !== null ? new Set([id]) : new Set(getBookWithDescendants(id));
+  const moveTo = target.parentId !== null ? target.parentId : DEFAULT_BOOK_ID;
+
+  saveBooks(books.filter((b) => !doomedBookIds.has(b.id)));
+  const words = readAllWords(); // 用全量（含软删除）保证序号最大值算得准
   let changed = false;
+  let maxOrder = words.reduce(
+    (m, it) => (it.bookId === moveTo ? Math.max(m, it.orderInBook) : m),
+    0,
+  );
   for (const w of words) {
-    if (w.bookId === id) {
-      w.bookId = DEFAULT_BOOK_ID;
+    if (doomedBookIds.has(w.bookId)) {
+      w.bookId = moveTo;
+      w.orderInBook = ++maxOrder;
       changed = true;
     }
   }
@@ -128,9 +245,13 @@ function notify() {
 interface LegacyWord {
   id?: string;
   word: string;
+  type?: EntryType;
   meaning?: string; // 旧字段
   meanings?: MeaningGroup[];
   bookId?: string;
+  orderInBook?: number;
+  mastered?: boolean;
+  deleted?: boolean;
   testedRounds?: number;
   lastTestedAt?: number | null;
   excluded?: boolean;
@@ -147,12 +268,52 @@ function migrateWord(raw: LegacyWord): WordItem {
   return {
     id: raw.id ?? uid(),
     word: raw.word,
+    type: raw.type === "phrase" ? "phrase" : "word",
     meanings,
     bookId: raw.bookId ?? DEFAULT_BOOK_ID,
+    orderInBook: raw.orderInBook ?? 0, // 0 = 待回填，由 migrateOrder 统一分配
+    mastered: raw.mastered ?? false,
+    deleted: raw.deleted ?? false,
     testedRounds: raw.testedRounds ?? 0,
     lastTestedAt: raw.lastTestedAt ?? null,
     excluded: raw.excluded ?? false,
   };
+}
+
+/**
+ * 回填书内序号：每本词书按现有数组顺序从 1 开始分配（已有序号的保留，跳过占用值）。
+ * 迁移前把原始数据快照备份到 vocab_words_backup_v1，并打印每本书首尾序号。
+ */
+function migrateOrder(words: WordItem[], rawJson: string): { words: WordItem[]; migrated: boolean } {
+  const need = words.some((w) => !w.orderInBook || w.orderInBook < 1);
+  if (!need) return { words, migrated: false };
+
+  // 备份（只备一次，不覆盖）
+  if (!localStorage.getItem(WORDS_BACKUP_KEY)) {
+    localStorage.setItem(WORDS_BACKUP_KEY, rawJson);
+  }
+
+  const byBook = new Map<string, WordItem[]>();
+  for (const w of words) {
+    const list = byBook.get(w.bookId) ?? [];
+    list.push(w);
+    byBook.set(w.bookId, list);
+  }
+  for (const [bookId, list] of byBook) {
+    const used = new Set(list.filter((w) => w.orderInBook >= 1).map((w) => w.orderInBook));
+    let next = 1;
+    for (const w of list) {
+      if (w.orderInBook >= 1) continue;
+      while (used.has(next)) next += 1;
+      w.orderInBook = next;
+      used.add(next);
+    }
+    const sorted = [...list].sort((a, b) => a.orderInBook - b.orderInBook);
+    console.info(
+      `[vocab] 迁移完成 · 词书 ${bookId}：共 ${list.length} 条，序号 ${sorted[0]?.orderInBook} → ${sorted[sorted.length - 1]?.orderInBook}（排序依据：原数据数组顺序，即添加顺序）`,
+    );
+  }
+  return { words, migrated: true };
 }
 
 // ---------- 内置示例单词 ----------
@@ -178,7 +339,8 @@ const SEED: Array<[string, string, string[]]> = [
 
 // ---------- 词库 ----------
 
-export function getWords(): WordItem[] {
+/** 读取全部单词（含软删除），仅供内部写操作使用 */
+function readAllWords(): WordItem[] {
   const raw = localStorage.getItem(WORDS_KEY);
   if (raw === null) {
     // 首次打开：写入内置示例
@@ -190,8 +352,11 @@ export function getWords(): WordItem[] {
         seeded.push({
           id: uid(),
           word,
+          type: "word",
           meanings: [{ pos, definitions: defs }],
           bookId: DEFAULT_BOOK_ID,
+          orderInBook: seeded.length + 1,
+          mastered: false,
           testedRounds: 0,
           lastTestedAt: null,
           excluded: false,
@@ -201,10 +366,18 @@ export function getWords(): WordItem[] {
     return seeded;
   }
   try {
-    return (JSON.parse(raw) as LegacyWord[]).map(migrateWord);
+    const parsed = (JSON.parse(raw) as LegacyWord[]).map(migrateWord);
+    const { words, migrated } = migrateOrder(parsed, raw);
+    if (migrated) localStorage.setItem(WORDS_KEY, JSON.stringify(words));
+    return words;
   } catch {
     return [];
   }
+}
+
+/** 对外查询：一律过滤软删除（deleted=true）的单词 */
+export function getWords(): WordItem[] {
+  return readAllWords().filter((w) => !w.deleted);
 }
 
 function saveWords(words: WordItem[]) {
@@ -212,18 +385,23 @@ function saveWords(words: WordItem[]) {
   notify();
 }
 
-/** 添加单词（可带一个初始义项组，可指定词书）。已存在则合并义项。 */
+/** 添加单词/词组（可带一个初始义项组，可指定词书）。已存在则合并义项。 */
 export function addWord(
   word: string,
   pos = "",
   definitions: string[] = [],
   bookId: string = DEFAULT_BOOK_ID,
+  type: EntryType = "word",
 ): WordItem | null {
   const w = word.trim();
   if (!w) return null;
+  // 词组默认进“我的词组”
+  if (type === "phrase" && bookId === DEFAULT_BOOK_ID) bookId = PHRASE_BOOK_ID;
   const words = getWords();
   const defs = definitions.map((d) => d.trim()).filter(Boolean);
-  const existing = words.find((it) => it.word.toLowerCase() === w.toLowerCase());
+  const existing = words.find(
+    (it) => it.word.toLowerCase() === w.toLowerCase() && it.type === type,
+  );
   if (existing) {
     // 合并：同词性追加义项，否则新增义项组
     const group = existing.meanings.find((m) => m.pos === pos);
@@ -235,11 +413,15 @@ export function addWord(
     saveWords(words);
     return existing;
   }
+  const maxOrder = words.reduce((m, it) => (it.bookId === bookId ? Math.max(m, it.orderInBook) : m), 0);
   const item: WordItem = {
     id: uid(),
     word: w,
+    type,
     meanings: pos || defs.length ? [{ pos, definitions: defs }] : [],
     bookId,
+    orderInBook: maxOrder + 1,
+    mastered: false,
     testedRounds: 0,
     lastTestedAt: null,
     excluded: false,
@@ -374,8 +556,27 @@ export function searchWords(query: string): WordItem[] {
   );
 }
 
+/**
+ * 软删除单词：标记 deleted=true，数据保留（将来可加回收站/撤销）。
+ * 列表/抽选/听写一律不再出现；错题本等历史记录保留引用，不做级联删除。
+ */
 export function removeWord(id: string): void {
-  saveWords(getWords().filter((it) => it.id !== id));
+  const words = readAllWords();
+  const w = words.find((it) => it.id === id);
+  if (w) {
+    w.deleted = true;
+    saveWords(words);
+  }
+}
+
+/** 恢复软删除的单词（数据层留的“回去的路”，暂无 UI） */
+export function restoreWord(id: string): void {
+  const words = readAllWords();
+  const w = words.find((it) => it.id === id);
+  if (w) {
+    w.deleted = false;
+    saveWords(words);
+  }
 }
 
 /** 切换“不再测”标记 */
@@ -386,6 +587,107 @@ export function toggleExcluded(id: string): void {
     w.excluded = !w.excluded;
     saveWords(words);
   }
+}
+
+/** 切换“已掌握”标记（手动开关，供抽选排除） */
+export function toggleMastered(id: string): void {
+  const words = getWords();
+  const w = words.find((it) => it.id === id);
+  if (w) {
+    w.mastered = !w.mastered;
+    saveWords(words);
+  }
+}
+
+/** 编辑释义（原地更新 meanings，保存即持久化；判分直接使用新释义） */
+export function updateMeanings(id: string, meanings: MeaningGroup[]): void {
+  const words = getWords();
+  const w = words.find((it) => it.id === id);
+  if (!w) return;
+  w.meanings = meanings
+    .map((m) => ({
+      pos: m.pos.trim(),
+      definitions: m.definitions.map((d) => d.trim()).filter(Boolean),
+    }))
+    .filter((m) => m.pos || m.definitions.length > 0);
+  saveWords(words);
+}
+
+// ---------- 抽选 ----------
+
+export interface SelectionCriteria {
+  bookId: string | "all";
+  type: EntryType | "all";
+  rangeStart?: number; // 书内序号范围（命中实际存在的 orderInBook，跳号不影响）
+  rangeEnd?: number;
+  includeDescendants?: boolean; // 默认 true：选词书层时含其全部章节；章节无后代，不受影响
+  excludeTested?: boolean; // testedRounds > 0（历史累计）
+  excludeMastered?: boolean; // mastered 或 excluded
+  count: number;
+  order: "sequential" | "random";
+}
+
+export interface SelectResult {
+  entryIds: string[]; // 抽选结果快照：分页/背诵/听写都基于它，不重新计算
+  matchedCount: number; // 条件命中总数（用于“范围命中 N 个，将抽 min(count,N) 个”）
+  rangeIgnored: boolean; // 选了词书层（含后代）时 range 参数被忽略，UI 据此提示
+}
+
+/** 唯一抽选入口：按条件对象筛选并返回 id 快照 */
+export function selectWords(criteria: SelectionCriteria): SelectResult {
+  let pool = getWords().filter((w) => !w.excluded); // “不再测”始终排除
+
+  // 词书范围：词书层默认含后代章节；章节（叶子）只含自身
+  let rangeIgnored = false;
+  if (criteria.bookId !== "all") {
+    const book = getBooks().find((b) => b.id === criteria.bookId);
+    const isParent = !!book && book.parentId === null;
+    const includeDesc = criteria.includeDescendants ?? true;
+    if (isParent && includeDesc) {
+      const ids = new Set(getBookWithDescendants(criteria.bookId));
+      pool = pool.filter((w) => ids.has(w.bookId));
+      if (criteria.rangeStart != null || criteria.rangeEnd != null) rangeIgnored = true;
+    } else {
+      pool = pool.filter((w) => w.bookId === criteria.bookId);
+      if (criteria.rangeStart != null || criteria.rangeEnd != null) {
+        const lo = criteria.rangeStart ?? 1;
+        const hi = criteria.rangeEnd ?? Number.MAX_SAFE_INTEGER;
+        pool = pool.filter((w) => w.orderInBook >= lo && w.orderInBook <= hi);
+      }
+    }
+  } else if (criteria.rangeStart != null || criteria.rangeEnd != null) {
+    const lo = criteria.rangeStart ?? 1;
+    const hi = criteria.rangeEnd ?? Number.MAX_SAFE_INTEGER;
+    pool = pool.filter((w) => w.orderInBook >= lo && w.orderInBook <= hi);
+  }
+
+  if (criteria.type !== "all") pool = pool.filter((w) => w.type === criteria.type);
+  if (criteria.excludeTested) pool = pool.filter((w) => w.testedRounds === 0);
+  if (criteria.excludeMastered) pool = pool.filter((w) => !w.mastered);
+
+  // 稳定的书内序号排序
+  pool = [...pool].sort((a, b) =>
+    a.bookId === b.bookId ? a.orderInBook - b.orderInBook : a.bookId.localeCompare(b.bookId),
+  );
+  const matchedCount = pool.length;
+  let picked: WordItem[];
+  if (criteria.order === "random") {
+    const shuffled = [...pool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    picked = shuffled.slice(0, Math.max(0, criteria.count));
+  } else {
+    picked = pool.slice(0, Math.max(0, criteria.count));
+  }
+  return { entryIds: picked.map((w) => w.id), matchedCount, rangeIgnored };
+}
+
+/** 按 id 数组取回单词（保持数组顺序），供 selectedEntryIds 快照还原 */
+export function getWordsByIds(ids: string[]): WordItem[] {
+  const map = new Map(getWords().map((w) => [w.id, w]));
+  return ids.map((id) => map.get(id)).filter((w): w is WordItem => !!w);
 }
 
 /** 记录一次测试（累加 testedRounds、更新 lastTestedAt） */
@@ -528,6 +830,8 @@ export function getWrongBook(): WrongItem[] {
       wrongAt: it.wrongAt,
       wrongCount: it.wrongCount ?? 1,
       corrected: it.corrected ?? false,
+      source: it.source ?? "quiz",
+      entryType: it.entryType ?? "word",
     }));
     return list.sort((a, b) => b.wrongAt - a.wrongAt);
   } catch {
@@ -541,9 +845,16 @@ function saveWrongBook(book: WrongItem[]) {
 }
 
 /** 答错收录：同一单词再次答错 → 累加 wrongCount 并更新答案/评语 */
-export function addToWrongBook(word: WordItem, yourAnswer: string, comment: string): void {
+export function addToWrongBook(
+  word: WordItem,
+  yourAnswer: string,
+  comment: string,
+  source: "quiz" | "dictation" = "quiz",
+): void {
   const book = getWrongBook();
-  const existing = book.find((it) => it.word.toLowerCase() === word.word.toLowerCase());
+  const existing = book.find(
+    (it) => it.word.toLowerCase() === word.word.toLowerCase() && it.source === source,
+  );
   if (existing) {
     existing.yourAnswer = yourAnswer;
     existing.comment = comment;
@@ -564,6 +875,8 @@ export function addToWrongBook(word: WordItem, yourAnswer: string, comment: stri
       wrongAt: Date.now(),
       wrongCount: 1,
       corrected: false,
+      source,
+      entryType: word.type,
     },
     ...book,
   ]);
