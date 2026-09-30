@@ -74,7 +74,6 @@ function WordRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [groups, setGroups] = useState<EditGroup[]>([]);
-  const [fallbackTip, setFallbackTip] = useState(false);
   const [noneTip, setNoneTip] = useState(false);
   // 关联笔记展开态
   const [notesOpen, setNotesOpen] = useState(false);
@@ -108,14 +107,11 @@ function WordRow({
 
   const handleSpeak = () => {
     const r = speak(it.word);
-    if (r.voice === "none" && !sessionStorage.getItem("vocab_tts_none_tip")) {
+    if (r.reason === "no-english-voice" && !sessionStorage.getItem("vocab_tts_none_tip")) {
+      // 一次性提示：系统没有任何英文语音
       sessionStorage.setItem("vocab_tts_none_tip", "1");
       setNoneTip(true);
       window.setTimeout(() => setNoneTip(false), 3500);
-    } else if (r.voice === "fallback" && !sessionStorage.getItem("vocab_tts_tip")) {
-      sessionStorage.setItem("vocab_tts_tip", "1");
-      setFallbackTip(true);
-      window.setTimeout(() => setFallbackTip(false), 3500);
     }
   };
 
@@ -314,14 +310,9 @@ function WordRow({
           </div>
         </div>
       )}
-      {fallbackTip && (
-        <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
-          当前环境无英式语音，已用默认语音代替
-        </p>
-      )}
       {noneTip && (
         <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
-          当前环境无可用语音，请检查系统语音包
+          当前系统无英文语音，请到系统设置安装英语语音包
         </p>
       )}
 

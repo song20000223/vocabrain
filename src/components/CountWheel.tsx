@@ -24,10 +24,16 @@ export default function CountWheel({ min = 1, max, value, onChange, unit = "题"
   const [active, setActive] = useState(value);
   // 输入框文本（允许中间态，如清空重输）；失焦/回车时收敛到合法值
   const [text, setText] = useState(String(value));
-  // 转轴候选值：min, min+step, ..., 不超过 max
+  // 转轴候选值：min, min+step, ..., 不超过 max；
+  // 若当前值不在步长网格上（如输入框手输了 7），插进去让转轴能真实显示/选中它，
+  // 保证"输入框的值就是实际抽选值"，不被吸附吞掉
   const items: number[] = [];
   for (let v = min; v <= max; v += step) items.push(v);
   if (items[items.length - 1] !== max) items.push(max);
+  if (!items.includes(value) && value >= min && value <= max) {
+    items.push(value);
+    items.sort((a, b) => a - b);
+  }
 
   const clamp = (v: number) => Math.min(max, Math.max(min, Math.round(v)));
 

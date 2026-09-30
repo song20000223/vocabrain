@@ -7,6 +7,7 @@ import {
   ChevronUp,
   BookOpen,
   CornerDownRight,
+  Volume2,
 } from "lucide-react";
 import QuizSession, {
   celebrateRain,
@@ -74,7 +75,7 @@ export default function TestPage() {
   const [typeFilter, setTypeFilter] = useState<EntryType | "all">(saved?.typeFilter ?? "all");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
-  const [count, setCount] = useState(saved?.count ?? 10);
+  const [count, setCount] = useState(Math.max(5, saved?.count ?? 10));
   const [ordered, setOrdered] = useState(saved?.ordered ?? true);
   const [excludeTested, setExcludeTested] = useState(saved?.excludeTested ?? true);
   const [excludeMastered, setExcludeMastered] = useState(saved?.excludeMastered ?? false);
@@ -90,6 +91,10 @@ export default function TestPage() {
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "1",
   );
   const [previewOpen, setPreviewOpen] = useState(false);
+  // 章节弹层：当前为哪本词书选章节
+  const [chapterPickerFor, setChapterPickerFor] = useState<string | null>(null);
+  // 发音设置弹层
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [previewIds, setPreviewIds] = useState<string[] | null>(null);
   const [previewMeta, setPreviewMeta] = useState<{ matched: number; rangeIgnored: boolean } | null>(
     null,
@@ -529,40 +534,37 @@ export default function TestPage() {
             </button>
             {rootBooks.map((b) => {
               const chapters = getChapters(b.id);
-              const active = bookId === b.id;
+              const chapterSel = chapters.find((c) => c.id === bookId);
+              const active = bookId === b.id || !!chapterSel;
               return (
-                <div key={b.id}>
-                  <button
-                    onClick={() => setBookId(b.id)}
-                    className={`flex min-h-[44px] w-full items-center gap-2 rounded-xl border px-3 text-left text-sm tracking-wide transition-all duration-300 ${
-                      active
-                        ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
-                        : "border-white/10 text-white/50 hover:border-white/25 hover:text-white"
-                    }`}
-                  >
-                    <BookOpen className="h-4 w-4 shrink-0 text-white/40" />
-                    <span className="flex-1 truncate">{b.name}</span>
-                    {chapters.length > 0 && (
-                      <span className="font-mono text-[10px] text-white/30">
-                        {chapters.length} 章节
+                <button
+                  key={b.id}
+                  onClick={() => {
+                    // 有章节 → 弹层选章节；无章节 → 直接选中
+                    if (chapters.length > 0) setChapterPickerFor(b.id);
+                    else setBookId(b.id);
+                  }}
+                  className={`flex min-h-[44px] w-full items-center gap-2 rounded-xl border px-3 text-left text-sm tracking-wide transition-all duration-300 ${
+                    active
+                      ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                      : "border-white/10 text-white/50 hover:border-white/25 hover:text-white"
+                  }`}
+                >
+                  <BookOpen className="h-4 w-4 shrink-0 text-white/40" />
+                  <span className="flex-1 truncate">
+                    {b.name}
+                    {chapterSel && (
+                      <span className="ml-1.5 font-mono text-[11px] text-blue-200/70">
+                        · {chapterSel.name}
                       </span>
                     )}
-                  </button>
-                  {chapters.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => setBookId(c.id)}
-                      className={`mt-1.5 flex min-h-[40px] w-full items-center gap-2 rounded-xl border py-1 pl-8 pr-3 text-left text-sm tracking-wide transition-all duration-300 ${
-                        bookId === c.id
-                          ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
-                          : "border-white/8 text-white/40 hover:border-white/25 hover:text-white"
-                      }`}
-                    >
-                      <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-white/25" />
-                      <span className="flex-1 truncate">{c.name}</span>
-                    </button>
-                  ))}
-                </div>
+                  </span>
+                  {chapters.length > 0 && (
+                    <span className="font-mono text-[10px] text-white/30">
+                      {chapters.length} 章节 ›
+                    </span>
+                  )}
+                </button>
               );
             })}
           </div>
@@ -672,11 +674,11 @@ export default function TestPage() {
 
         <div>
           <label className="text-sm tracking-wide text-white/45">
-            抽取数量 <span className="text-white/25">（转动选择，1 – {Math.max(testableCount, 100)} 个）</span>
+            抽取数量 <span className="text-white/25">（转动选择，5 – {Math.max(testableCount, 100)} 个，可手输任意值）</span>
           </label>
           <div className="mt-2">
             <CountWheel
-              min={1}
+              min={5}
               max={Math.max(testableCount, 100)}
               value={count}
               onChange={setCount}
@@ -752,6 +754,74 @@ export default function TestPage() {
           跳过预览直接开始（记住选择）
         </button>
       </div>
+
+      {/* 章节选择弹层 */}
+      {chapterPickerFor &&
+        (() => {
+          const pb = books.find((b) => b.id === chapterPickerFor);
+          if (!pb) return null;
+          const chapters = getChapters(pb.id);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+              <div className="glass-card flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl p-6">
+                <h3 className="font-semibold tracking-wide text-white">{pb.name} · 选择章节</h3>
+                <div className="mt-4 flex-1 space-y-1.5 overflow-y-auto">
+                  <button
+                    onClick={() => {
+                      setBookId(pb.id); // 整本：选中词书本体，includeDescendants 默认 true
+                      setChapterPickerFor(null);
+                    }}
+                    className={`flex min-h-[44px] w-full items-center gap-2 rounded-xl border px-3 text-left text-sm tracking-wide transition-colors ${
+                      bookId === pb.id
+                        ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                        : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
+                    }`}
+                  >
+                    <BookOpen className="h-4 w-4 shrink-0 text-white/40" />
+                    整本（含全部章节）
+                  </button>
+                  {chapters.map((c) => {
+                    const n = words.filter((w) => w.bookId === c.id && !w.excluded).length;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => {
+                          setBookId(c.id);
+                          setChapterPickerFor(null);
+                        }}
+                        className={`flex min-h-[44px] w-full items-center gap-2 rounded-xl border px-3 text-left text-sm tracking-wide transition-colors ${
+                          bookId === c.id
+                            ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                            : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
+                        }`}
+                      >
+                        <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-white/25" />
+                        <span className="flex-1 truncate">{c.name}</span>
+                        <span className="font-mono text-[10px] text-white/30">{n} 词</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setChapterPickerFor(null)}
+                  className="mt-4 min-h-[36px] text-xs tracking-wide text-white/35 hover:text-white/60"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+      {voiceOpen && <VoiceSettings onClose={() => setVoiceOpen(false)} />}
+
+      {/* 发音设置入口 */}
+      <button
+        onClick={() => setVoiceOpen(true)}
+        className="mx-auto flex items-center gap-1.5 text-xs tracking-wide text-white/35 transition-colors hover:text-white/60"
+      >
+        <Volume2 className="h-3.5 w-3.5" /> 发音设置
+      </button>
 
       {/* 当前条件摘要 */}
       <p className="text-center font-mono text-[11px] tracking-wide text-white/25">

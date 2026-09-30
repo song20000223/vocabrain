@@ -100,17 +100,25 @@ with sync_playwright() as p:
     # 输入框设 2，转轴联动
     num = page.locator("input[aria-label='抽取数量']")
     num.press_sequentially("2") if False else None
-    num.click(); num.press("Control+a"); num.press_sequentially("2"); num.blur(); page.wait_for_timeout(300)
+    num.click(); num.press("Control+a"); num.press_sequentially("5"); num.blur(); page.wait_for_timeout(300)
     opts = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_test_options'))")
-    ok("count 输入框持久化为 2", opts["count"] == 2, str(opts["count"]))
+    ok("count 输入框持久化为 5", opts["count"] == 5, str(opts["count"]))
 
     # ---- 测试（canyon 答错） ----
     page.goto(BASE + "/test", wait_until="networkidle")
-    page.locator("button").filter(has_text="雅思真经").last.click(); page.wait_for_timeout(300)
-    ok("父节点范围置灰提示", "章节" in page.locator("body").inner_text())
+    page.locator("button").filter(has_text="雅思真经").last.click(); page.wait_for_timeout(400)
+    # 有章节 → 弹层（这是章节弹层的第一次出现）
+    ok("章节弹层出现", "选择章节" in page.locator("body").inner_text())
+    # 弹层容器内选 Unit 1（避免和词书按钮文案歧义）
+    page.locator("div.fixed.inset-0").locator("button", has_text="Unit 1").click(); page.wait_for_timeout(300)
+    ok("选章节后按钮显示 词书·章节",
+       page.evaluate("() => [...document.querySelectorAll('button')].some(b => b.textContent.includes('雅思真经') && b.textContent.includes('Unit 1'))"))
+    # 转轴 5 起步断言
+    wheel_text = page.locator("ul").first.inner_text()
+    ok("转轴从 5 起步", wheel_text.strip().split("\n")[0].strip() == "5", wheel_text.strip().split("\n")[0])
     # count 已在前序断言持久化为 2；恢复 3，避免队列长度不符
     num = page.locator("input[aria-label='抽取数量']")
-    num.click(); num.press("Control+a"); num.press_sequentially("3"); num.blur(); page.wait_for_timeout(300)
+    num.click(); num.press("Control+a"); num.press_sequentially("5"); num.blur(); page.wait_for_timeout(300)
     page.locator("button.glow-btn", has_text="开始测试").click(); page.wait_for_timeout(900)
     # 若 0 命中（上一轮测试残留进度），取消「排除已测」再试
     if "无匹配单词" in page.locator("body").inner_text():
@@ -135,7 +143,8 @@ with sync_playwright() as p:
     # ---- 中途退出重抽：已测词不再出现（excludeTested 默认勾） ----
     page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
     # 全部 3 词都已测过（answer_loop 答了 3 题）→ 预览应 0 命中
-    page.locator("button").filter(has_text="雅思真经").last.click(); page.wait_for_timeout(300)
+    page.locator("button").filter(has_text="雅思真经").last.click(); page.wait_for_timeout(400)
+    page.locator("div.fixed.inset-0").locator("button", has_text="Unit 1").click(); page.wait_for_timeout(300)  # 章节弹层 → 选 Unit 1
     page.locator("button.glow-btn", has_text="开始测试").click(); page.wait_for_timeout(900)
     body = page.locator("body").inner_text()
     ok("中途退出重抽已测词被排除", "无匹配单词" in body or "命中 0" in body, body[body.find("命中"):body.find("命中")+15] if "命中" in body else "")
@@ -155,8 +164,24 @@ with sync_playwright() as p:
         page.locator("text=排除已测").first.click(); page.wait_for_timeout(400)
     page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(900)
     page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(900)  # 预览→开考
+    ok("听写无声常驻提示(沙盒无英文voice)", "无英文语音" in page.locator("body").inner_text())
+    ok("听写方向切换存在", "英拼英" in page.locator("body").inner_text())
+    # 英拼英：切方向 → 输入正确英文 → 判对
+    page.click("button:has-text('英拼英')"); page.wait_for_timeout(200)
+    cur = page.evaluate("() => null")  # 题面词不可见（不显示单词），用 localStorage 找队列第一题
+    # 英拼英答法：queue 顺序=预览顺序(顺序模式)，第一题是 abandon
+    page.locator("textarea").first.press_sequentially("Abandon ")  # 大小写+尾随空格应判对
+    page.click("button:has-text('提交答案')"); page.wait_for_timeout(800)
+    ok("英拼英忽略大小写/空格判对", "不对，正确答案" not in page.locator("body").inner_text())
+    page.click("button:has-text('英译中')"); page.wait_for_timeout(200)
+    # 答对的这题要走「下一个」再进入正常流程
+    for label in ["下一个", "查看结果"]:
+        btn = page.locator(f"button:has-text('{label}')").first
+        if btn.count(): btn.click(); page.wait_for_timeout(500); break
+    # 剩 2 题英译中全错（answer_loop 按 3 题设计的队列长度=5 抽 3；上面已答 1，剩 2）
+    
     before = {w["word"]: w["testedRounds"] for w in page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))") if w["word"] in ("abandon","chamber","canyon")}
-    answer_loop(page, 3, ["abandon","chamber","canyon"], "dictation")
+    answer_loop(page, 2, ["chamber","canyon"], "dictation")
     if page.locator("button:has-text('完成')").count():
         page.click("button:has-text('完成')"); page.wait_for_timeout(500)
     wrong2 = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_wrong_book')||'[]')")
@@ -165,9 +190,11 @@ with sync_playwright() as p:
     ok("听写不动 testedRounds", before==after)
     ok("「导出本次结果」出现", "导出本次结果" in page.locator("body").inner_text())
 
-    # ---- wrongStreak：quiz 答错 canyon + 听写全错 → 三者都 ≥1 ----
+    # ---- wrongStreak：canyon(quiz错+听写错)=2、chamber(听写错)≥1；
+    #      abandon 英拼英答对(+1-1 抵消)→ 验证答对 -1 生效
     streaks = {w["word"]: w.get("wrongStreak", 0) for w in page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))") if w["word"] in ("abandon","chamber","canyon")}
-    ok("答错累计 wrongStreak", all(v >= 1 for v in streaks.values()), str(streaks))
+    ok("答错累计 wrongStreak", streaks["canyon"] == 2 and streaks["chamber"] >= 1, str(streaks))
+    ok("答对 -1 抵消 wrongStreak", streaks["abandon"] == 0, str(streaks["abandon"]))
 
     # ---- 优先错词开关：存在 + 持久化 ----
     page.goto(BASE + "/test", wait_until="networkidle")
@@ -222,7 +249,7 @@ with sync_playwright() as p:
     if page.evaluate("() => (JSON.parse(localStorage.getItem('vocab_test_options')||'{}').excludeTested ?? true)"):
         page.locator("text=排除已测").first.click(); page.wait_for_timeout(300)
     num = page.locator("input[aria-label='抽取数量']")
-    num.click(); num.press("Control+a"); num.press_sequentially("1"); num.blur(); page.wait_for_timeout(300)
+    num.click(); num.press("Control+a"); num.press_sequentially("5"); num.blur(); page.wait_for_timeout(300)
     page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(700)
     page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(700)
     page.locator("textarea").first.press_sequentially("天气真好")

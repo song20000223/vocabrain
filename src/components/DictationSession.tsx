@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Volume2, Turtle, CheckCircle2, XCircle, Flag } from "lucide-react";
 import { formatMeanings } from "@/lib/store";
-import { speak } from "@/lib/speak";
+import { speak, hasEnglishVoice } from "@/lib/speak";
+import VoiceSettings from "./VoiceSettings";
 import { matchDictation } from "@/lib/quickJudge";
 import SessionReview, { type ReviewItem } from "./SessionReview";
 import { celebrateRain, flashJudge, type QuizWord } from "./QuizSession";
@@ -29,6 +30,11 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
   const [results, setResults] = useState<boolean[]>([]);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [playing, setPlaying] = useState(false);
+  // 方向：英译中（写中文义项）/ 英拼英（写英文单词本身）。切换不重置队列，从下一题生效
+  const [direction, setDirection] = useState<"en2zh" | "en2en">("en2zh");
+  const [voiceOpen, setVoiceOpen] = useState(false);
+  // 无英文 voice：听写完全依赖发音，常驻提示（测试模式不加）
+  const [noVoice] = useState(() => !hasEnglishVoice());
 
   const current = queue[index];
   const total = queue.length;
@@ -89,7 +95,11 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
 
   const submit = () => {
     if (!answer.trim()) return;
-    const ok = matchDictation(answer, current.meanings);
+    // 英拼英：忽略大小写/前后空格，精确匹配单词本身（词组要写全）
+    const ok =
+      direction === "en2en"
+        ? answer.trim().toLowerCase() === current.word.trim().toLowerCase()
+        : matchDictation(answer, current.meanings);
     setLastCorrect(ok);
     setResults((r) => [...r, ok]);
     setReviewItems((arr) => [
@@ -99,7 +109,10 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
         word: current.word,
         answer: answer.trim(),
         correct: ok,
-        standardMeaning: current.meanings.flatMap((m) => m.definitions).join("；") || current.word,
+        standardMeaning:
+          direction === "en2en"
+            ? current.word
+            : current.meanings.flatMap((m) => m.definitions).join("；") || current.word,
       },
     ]);
     onJudged(current, answer.trim(), ok);
@@ -126,18 +139,55 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
         }
       }}
     >
-      <div className="flex items-center justify-between">
-        <p className="font-mono text-xs tracking-widest text-white/40">
-          听写 {Math.min(index + 1, total)} / {total}
+      {noVoice && (
+        <p className="rounded-xl border border-amber-300/25 bg-amber-400/8 px-4 py-2 text-center text-xs tracking-wide text-amber-200/80">
+          当前系统无英文语音，请到系统设置安装英语语音包（听写将无声）
         </p>
-        {onExit && (
+      )}
+      {voiceOpen && <VoiceSettings onClose={() => setVoiceOpen(false)} />}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <p className="font-mono text-xs tracking-widest text-white/40">
+            听写 {Math.min(index + 1, total)} / {total}
+          </p>
+          {/* 方向切换：英译中 / 英拼英，从下一题生效 */}
+          <div className="flex rounded-full border border-white/10 p-0.5">
+            {(
+              [
+                { v: "en2zh", label: "英译中" },
+                { v: "en2en", label: "英拼英" },
+              ] as const
+            ).map((d) => (
+              <button
+                key={d.v}
+                onClick={() => setDirection(d.v)}
+                className={`min-h-[28px] rounded-full px-3 text-[11px] tracking-wide transition-colors ${
+                  direction === d.v
+                    ? "bg-blue-400/20 text-blue-100"
+                    : "text-white/40 hover:text-white/70"
+                }`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
           <button
-            onClick={onExit}
+            onClick={() => setVoiceOpen(true)}
             className="text-xs tracking-wide text-white/40 transition-colors hover:text-white"
           >
-            {exitText ?? "退出听写"}
+            发音设置
           </button>
-        )}
+          {onExit && (
+            <button
+              onClick={onExit}
+              className="text-xs tracking-wide text-white/40 transition-colors hover:text-white"
+            >
+              {exitText ?? "退出听写"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 播放区：不显示单词本身 */}
@@ -159,7 +209,11 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
             <Turtle className="h-5 w-5" />
           </button>
         </div>
-        <p className="text-xs tracking-wide text-white/35">听发音，写出中文义项（任一义项命中即算对）</p>
+        <p className="text-xs tracking-wide text-white/35">
+          {direction === "en2en"
+            ? "听发音，拼出英文单词（词组要写全）"
+            : "听发音，写出中文义项（任一义项命中即算对）"}
+        </p>
       </div>
 
       {phase === "answer" ? (
@@ -168,7 +222,7 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
             value={answer}
             onChange={(e) => setAnswer(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), submit())}
-            placeholder="在这里写中文释义……（回车提交）"
+            placeholder={direction === "en2en" ? "在这里拼英文单词……（回车提交）" : "在这里写中文释义……（回车提交）"}
             autoFocus
             rows={2}
             className="glass-input w-full resize-none rounded-2xl p-4 tracking-wide"
@@ -199,11 +253,13 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
             )}
           </p>
           <p className="font-mono text-xl tracking-wide text-white">{current.word}</p>
-          <div className="space-y-0.5 text-sm tracking-wide text-white/60">
-            {formatMeanings(current.meanings).map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
-          </div>
+          {direction === "en2zh" && (
+            <div className="space-y-0.5 text-sm tracking-wide text-white/60">
+              {formatMeanings(current.meanings).map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+          )}
           {!lastCorrect && (
             <p className="text-xs tracking-wide text-white/35">
               你的答案：{answer}（已记入错题本 · 来源：听写）
