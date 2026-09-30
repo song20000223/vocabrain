@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trash2, Eraser, Play, Volume2 } from "lucide-react";
+import { Trash2, Eraser, Play, Volume2, Search, Link2, StickyNote, X } from "lucide-react";
 import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
+import WordRow from "@/components/WordRow";
 import {
   getWrongBook,
   getWords,
@@ -14,10 +15,31 @@ import {
   formatMeanings,
   type WrongItem,
 } from "@/lib/store";
+import { getMemosForWord } from "@/lib/memo";
 
 interface ReviewSummary {
   corrected: number;
   stillWrong: number;
+}
+
+/** 把错题本的 WrongItem 补成 WordItem 形状（WordRow/详情弹窗的 🔗📝 需要完整字段） */
+function toWordItem(it: WrongItem) {
+  const full = getWords().find((w) => w.id === it.id);
+  return (
+    full ?? {
+      id: it.id,
+      word: it.word,
+      meanings: it.meanings,
+      type: it.entryType,
+      bookId: "default",
+      orderInBook: 0,
+      mastered: false,
+      testedRounds: 0,
+      lastTestedAt: null,
+      excluded: false,
+      wrongStreak: 0,
+    }
+  );
 }
 
 export default function WrongBookPage() {
@@ -28,6 +50,9 @@ export default function WrongBookPage() {
   const [autoRemove, setAutoRemove] = useState(true); // 答对后自动移出
   const [summary, setSummary] = useState<ReviewSummary | null>(null);
   const [reviewedCount, setReviewedCount] = useState(0);
+  // 搜索 + 详情弹窗
+  const [query, setQuery] = useState("");
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const refresh = () => setItems(getWrongBook());
 
@@ -37,7 +62,18 @@ export default function WrongBookPage() {
     return () => window.removeEventListener("vocab-store-change", refresh);
   }, []);
 
-  const summaryStats = useMemo(() => summary, [summary]);
+  // 搜索实时过滤（单词 + 释义）
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (it) =>
+        it.word.toLowerCase().includes(q) ||
+        it.meanings.some((m) => m.definitions.some((d) => d.toLowerCase().includes(q))),
+    );
+  }, [items, query]);
+
+  const detail = detailId ? items.find((it) => it.id === detailId) ?? null : null;
 
   // ---------- 复习流程 ----------
 
@@ -109,12 +145,6 @@ export default function WrongBookPage() {
         }}
       />
     );
-  }
-
-  // ---------- 复习完成总结 ----------
-
-  if (summaryStats && items !== null && reviewedCount > 0 && reviewQueue === null && summary !== null) {
-    // 总结展示后由按钮关闭
   }
 
   // ---------- 列表页 ----------
@@ -195,72 +225,163 @@ export default function WrongBookPage() {
         </div>
       )}
 
-      {/* 错题列表 */}
+      {/* 搜索框 */}
+      {items.length > 0 && (
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索单词或释义…"
+            aria-label="搜索错题"
+            className="glass-input min-h-[44px] w-full rounded-full pl-11 pr-10 text-sm tracking-wide transition-shadow focus:shadow-[0_0_0_3px_rgba(147,197,253,0.15)]"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              aria-label="清空搜索"
+              className="absolute right-2 top-1/2 flex min-h-[36px] min-w-[36px] -translate-y-1/2 items-center justify-center rounded-full text-white/30 hover:text-white/70"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 错题网格 */}
       {items.length === 0 ? (
         <div className="glass-card rounded-2xl p-12 text-center tracking-wide text-white/40">
-          暂无错题，去测试页练练手吧。
+          暂无错题，去测试吧。
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="glass-card rounded-2xl p-12 text-center tracking-wide text-white/40">
+          没有匹配「{query}」的错题。
         </div>
       ) : (
-        <ul className="flex flex-col gap-4">
-          {items.map((it) => (
-            <li
-              key={it.id}
-              className="glass-card relative overflow-hidden rounded-2xl p-5 sm:p-6"
-            >
-              {/* 错误热度条：错得越多越亮 */}
-              {it.wrongCount >= 2 && (
-                <span
-                  className="absolute left-0 top-0 h-full w-[3px]"
-                  style={{
-                    background: `linear-gradient(180deg, rgba(248,113,113,${Math.min(0.25 + it.wrongCount * 0.15, 0.9)}), transparent)`,
-                    boxShadow: `0 0 ${4 + it.wrongCount * 2}px rgba(248,113,113,${Math.min(0.2 + it.wrongCount * 0.1, 0.6)})`,
-                  }}
-                />
-              )}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xl tracking-wide text-white">{it.word}</span>
-                    <span className="rounded-full border border-red-400/25 px-2 py-0.5 text-[10px] tracking-wide text-red-300/80">
-                      错 {it.wrongCount} 次
-                    </span>
-                    {it.corrected && (
-                      <span className="rounded-full border border-emerald-400/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-300/80">
-                        已订正
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 space-y-0.5 text-sm tracking-wide text-blue-200/80">
-                    {formatMeanings(it.meanings).map((line, i) => (
-                      <p key={i}>{line}</p>
-                    ))}
-                  </div>
-                </div>
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map((it) => {
+            const word = toWordItem(it);
+            const memoCount = getMemosForWord(it.id).length;
+            return (
+              <li key={it.id}>
                 <button
-                  onClick={() => {
-                    removeFromWrongBook(it.id);
-                    refresh();
-                  }}
-                  aria-label="移出错题本"
-                  className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-white/30 transition-colors duration-300 hover:text-red-300"
+                  onClick={() => setDetailId(it.id)}
+                  className="glass-card relative flex h-full w-full flex-col gap-2 overflow-hidden rounded-2xl p-4 text-left transition-colors duration-300 hover:border-red-300/30"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  {/* 错误热度条：错得越多越亮 */}
+                  {it.wrongCount >= 2 && (
+                    <span
+                      className="absolute left-0 top-0 h-full w-[3px]"
+                      style={{
+                        background: `linear-gradient(180deg, rgba(248,113,113,${Math.min(0.25 + it.wrongCount * 0.15, 0.9)}), transparent)`,
+                        boxShadow: `0 0 ${4 + it.wrongCount * 2}px rgba(248,113,113,${Math.min(0.2 + it.wrongCount * 0.1, 0.6)})`,
+                      }}
+                    />
+                  )}
+                  <div className="flex items-center gap-2 pl-1.5">
+                    {/* 状态点：红=未订正，绿=已订正 */}
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        it.corrected ? "bg-emerald-300" : "bg-red-400"
+                      }`}
+                      title={it.corrected ? "已订正" : "未订正"}
+                    />
+                    <span className="truncate font-mono text-base tracking-wide text-white">
+                      {it.word}
+                    </span>
+                  </div>
+                  <p className="truncate pl-4 text-xs tracking-wide text-white/50">
+                    {formatMeanings(it.meanings).join(" · ") || "（暂无释义）"}
+                  </p>
+                  {/* 🔗/📝 槽位预览（点开卡片详情里可交互） */}
+                  <div className="mt-auto flex items-center gap-1 pl-2.5 pt-1">
+                    <Link2
+                      className={`h-3.5 w-3.5 ${word.familyKey ? "text-blue-300/80" : "text-white/12"}`}
+                    />
+                    <StickyNote
+                      className={`h-3.5 w-3.5 ${memoCount > 0 ? "text-amber-200/80" : "text-white/12"}`}
+                    />
+                  </div>
                 </button>
-              </div>
-              <div className="mt-3 space-y-1.5 text-sm tracking-wide">
-                <p className="text-white/35">
-                  你的答案　<span className="text-red-300/85">{it.yourAnswer}</span>
-                </p>
-                <p className="text-white/35">
-                  {it.source === "dictation" ? "听写评语" : "AI 评语"}　<span className="text-white/70">{it.comment}</span>
-                </p>
-                <p className="font-mono text-[11px] text-white/25">
-                  {new Date(it.wrongAt).toLocaleString("zh-CN")}
-                </p>
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
+      )}
+
+      {/* 详情弹窗 */}
+      {detail && (
+        <div
+          className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setDetailId(null)}
+        >
+          <div
+            className="glass-card flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-2xl tracking-wide text-white">{detail.word}</span>
+                  <span className="rounded-full border border-red-400/25 px-2 py-0.5 text-[10px] tracking-wide text-red-300/80">
+                    已错 {detail.wrongCount} 次
+                  </span>
+                  {detail.corrected && (
+                    <span className="rounded-full border border-emerald-400/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-300/80">
+                      已订正
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 space-y-0.5 text-sm tracking-wide text-blue-200/80">
+                  {formatMeanings(detail.meanings).map((line, i) => (
+                    <p key={i}>{line}</p>
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={() => setDetailId(null)}
+                aria-label="关闭"
+                className="flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-full text-white/40 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-1.5 overflow-y-auto text-sm tracking-wide">
+              <p className="text-white/35">
+                你的答案　<span className="text-red-300/85">{detail.yourAnswer}</span>
+              </p>
+              <p className="text-white/35">
+                {detail.source === "dictation" ? "听写评语" : "AI 评语"}　
+                <span className="text-white/70">{detail.comment}</span>
+              </p>
+              <p className="font-mono text-[11px] text-white/25">
+                {new Date(detail.wrongAt).toLocaleString("zh-CN")}
+              </p>
+            </div>
+
+            {/* 🔗/📝 复用 WordRow 紧凑模式（单词+释义+词族/笔记槽位可交互） */}
+            <div className="mt-4">
+              <WordRow
+                it={toWordItem(detail)}
+                onChanged={refresh}
+                compact
+                onEdit={() => setDetailId(null)}
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                removeFromWrongBook(detail.id);
+                setDetailId(null);
+                refresh();
+              }}
+              className="mt-4 flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-red-300/25 text-sm tracking-wide text-red-200/80 transition-colors hover:border-red-300/50 hover:text-red-200"
+            >
+              <Trash2 className="h-4 w-4" /> 删除此错题
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

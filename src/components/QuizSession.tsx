@@ -331,7 +331,7 @@ export default function QuizSession({
 
   return (
     <div
-      className="mx-auto flex max-w-xl flex-col gap-6"
+      className="mx-auto flex max-w-3xl flex-col gap-6"
       tabIndex={-1}
       ref={(el) => { if (result) el?.focus(); }}
       onKeyDown={(e) => {

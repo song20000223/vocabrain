@@ -61,7 +61,7 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
     const correctCount = results.filter(Boolean).length;
     const acc = total > 0 ? Math.round((correctCount / total) * 100) : 0;
     return (
-      <div className="glass-card mx-auto flex max-w-xl flex-col items-center gap-5 rounded-3xl p-10 text-center">
+      <div className="glass-card mx-auto flex max-w-3xl flex-col items-center gap-5 rounded-3xl p-10 text-center">
         <p className="eyebrow">Dictation Complete</p>
         <h2 className="hero-title text-3xl">听写完成</h2>
         <p className="font-mono text-5xl tracking-wide text-blue-200">{acc}%</p>
@@ -129,7 +129,7 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
 
   return (
     <div
-      className="mx-auto flex w-full max-w-xl flex-col gap-6"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-6"
       tabIndex={-1}
       ref={(el) => { if (phase === "result") el?.focus(); }}
       onKeyDown={(e) => {

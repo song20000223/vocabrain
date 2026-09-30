@@ -361,7 +361,7 @@ export default function TestPage() {
   const bookNameOf = (id: string) => books.find((b) => b.id === id)?.name ?? "?";
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6">
       {/* 上次会话结果导出：次级提示条，不抢主流程 */}
       {lastSessionIds && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 px-4 py-2">

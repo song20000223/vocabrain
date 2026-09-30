@@ -399,6 +399,72 @@ with sync_playwright() as p:
     ok("bug③ 浮层内容完整可见", "测试笔记标题" in pop.locator("input[placeholder='笔记标题']").input_value())
     page.keyboard.press("Escape"); page.wait_for_timeout(200)
 
+    # ================= UI批：错题本网格/搜索/详情 + 测试页宽度 + 断点 =================
+    page.goto(BASE + "/words", wait_until="networkidle")
+    page.evaluate("localStorage.clear()")
+    page.goto(BASE + "/words", wait_until="networkidle"); page.wait_for_timeout(300)
+    # 造 4 条错题（3 单词 1 词组，覆盖搜索过滤）
+    page.evaluate("""() => {
+      const words = JSON.parse(localStorage.getItem('vocab_words'));
+      const wb = words.slice(0,4).map((w,i)=>({id:w.id,word:w.word,meanings:w.meanings,yourAnswer:'错误答案'+i,comment:'评语'+i,wrongAt:Date.now()-i*3600e3,wrongCount:i+1,corrected:i===3,source:'quiz',entryType:w.type||'word'}));
+      localStorage.setItem('vocab_wrong_book', JSON.stringify(wb));
+    }""")
+    page.goto(BASE + "/wrong-book", wait_until="networkidle"); page.wait_for_timeout(500)
+    # 网格布局类名存在
+    ok("UI 错题本网格类", page.evaluate("() => { const ul=[...document.querySelectorAll('ul.grid')].find(e=>e.className.includes('grid-cols-2')&&e.className.includes('grid-cols-3')); return ul?1:0; }") == 1)
+    cards = page.locator("ul.grid li button").count()
+    ok("UI 错题卡片 4 张", cards == 4, str(cards))
+    # 状态点：红=未订正 3 张、绿=已订正 1 张
+    reddots = page.locator("ul.grid span.bg-red-400").count()
+    greendots = page.locator("ul.grid span.bg-emerald-300").count()
+    ok("UI 状态点红3绿1", reddots == 3 and greendots == 1, f"{reddots}/{greendots}")
+    # 🔗/📝 槽位常驻（每张卡 2 个图标）
+    link_icons = page.locator("ul.grid li svg.lucide-link-2, ul.grid li svg").count()
+    ok("UI 卡片含🔗📝槽位", page.locator("ul.grid li").count() == 4)
+    # 搜索实时过滤
+    page.locator("input[aria-label='搜索错题']").press_sequentially("plateau", delay=20); page.wait_for_timeout(400)
+    ok("UI 搜索过滤 plateau", page.locator("ul.grid li").count() == 1, str(page.locator("ul.grid li").count()))
+    page.locator("input[aria-label='搜索错题']").fill("zzz不存在"); page.wait_for_timeout(300)
+    ok("UI 搜索无结果提示", "没有匹配" in page.locator("body").inner_text())
+    page.locator("button[aria-label='清空搜索']").click(); page.wait_for_timeout(300)
+    # 详情弹窗
+    page.locator("ul.grid li button").first.click(); page.wait_for_timeout(400)
+    dlg = page.locator("div.fixed.inset-0").last
+    dlg_body = dlg.inner_text()
+    ok("UI 详情弹窗含已错次数+答案+时间", "已错" in dlg_body and "你的答案" in dlg_body and "删除此错题" in dlg_body)
+    # 详情弹窗里 🔗/📝 可交互（compact WordRow）
+    ok("UI 详情弹窗含WordRow槽位", dlg.locator("button[aria-label$='的词族']").count() == 1 and dlg.locator("button[aria-label$='的关联笔记']").count() == 1)
+    # 删除此错题
+    first_word = page.locator("ul.grid li button").first.locator("span.font-mono").inner_text()
+    dlg.locator("button", has_text="删除此错题").click(); page.wait_for_timeout(400)
+    ok("UI 删除此错题生效", page.locator("ul.grid li").count() == 3 and first_word not in page.locator("ul.grid").inner_text())
+    # 复习/听写按钮保留
+    ok("UI 复习+听写按钮保留", "开始复习错题" in page.locator("body").inner_text() and "听写错题" in page.locator("body").inner_text())
+
+    # 断点断言：768px（2 列）、1024px（3 列）
+    for vw, expect_cols in [(768, 2), (1024, 3)]:
+        page.set_viewport_size({"width": vw, "height": 900}); page.wait_for_timeout(400)
+        cols = page.evaluate("""() => {
+          const ul = document.querySelector('ul.grid');
+          if (!ul) return 0;
+          return getComputedStyle(ul).gridTemplateColumns.split(' ').length;
+        }""")
+        ok(f"UI 断点 {vw}px {expect_cols} 列", cols == expect_cols, f"实际 {cols} 列")
+    page.set_viewport_size({"width":1280,"height":900})
+
+    # 测试页宽度：设置面板 max-w-4xl，题卡 max-w-3xl
+    page.goto(BASE + "/test", wait_until="networkidle"); page.wait_for_timeout(400)
+    settings_w = page.evaluate("""() => {
+      const d = [...document.querySelectorAll('main div')].find(e=>e.className.includes('max-w-4xl'));
+      return d ? '4xl' : null;
+    }""")
+    ok("UI 测试设置面板 max-w-4xl", settings_w == "4xl", str(settings_w))
+    # 题卡宽度：源码断言（QuizSession/DictationSession 容器）
+    import re as _re
+    qs = open("src/components/QuizSession.tsx", encoding="utf-8").read()
+    ds = open("src/components/DictationSession.tsx", encoding="utf-8").read()
+    ok("UI 题卡 max-w-3xl", "max-w-3xl" in qs and "max-w-3xl" in ds and "max-w-xl" not in qs and "max-w-xl" not in ds)
+
     b.close()
 
 fails = [n for n,c in PASS if not c]
