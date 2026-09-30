@@ -1,43 +1,73 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Play, CheckSquare, Square, RotateCcw } from "lucide-react";
-import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
+import {
+  Play,
+  RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  BookOpen,
+  CornerDownRight,
+} from "lucide-react";
+import QuizSession, {
+  celebrateRain,
+  type QuizJudgeResult,
+  type QuizWord,
+} from "@/components/QuizSession";
 import CountWheel from "@/components/CountWheel";
 import {
   getWords,
+  getBooks,
+  getChapters,
+  isChapter,
   addToWrongBook,
-  pickNextWord,
   markTestedInRound,
   roundStats,
   resetProgress,
-  getProgress,
+  selectWords,
+  getWordsByIds,
+  formatMeanings,
   type WordItem,
+  type BookItem,
   type Direction,
+  type EntryType,
+  type SelectionCriteria,
 } from "@/lib/store";
 
-type Mode = "all" | "pick";
+const SKIP_PREVIEW_KEY = "vocab_skip_preview";
 
 export default function TestPage() {
   const [words, setWords] = useState<WordItem[]>([]);
+  const [books, setBooks] = useState<BookItem[]>([]);
   const [stats, setStats] = useState(() => roundStats("en2zh"));
-  // 轮次庆功浮层：记录刚完成的轮次号，null 表示不显示
+  // 轮次庆功浮层
   const [roundFlash, setRoundFlash] = useState<number | null>(null);
 
-  // 设置面板状态
-  const [mode, setMode] = useState<Mode>("all");
+  // ---------- 条件面板 ----------
   const [direction, setDirection] = useState<Direction>("en2zh");
+  const [bookId, setBookId] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<EntryType | "all">("all");
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
   const [count, setCount] = useState(10);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [rangeText, setRangeText] = useState("");
-  // 出题顺序：按词库顺序 / 乱序
   const [ordered, setOrdered] = useState(true);
+  const [excludeTested, setExcludeTested] = useState(false);
+  const [excludeMastered, setExcludeMastered] = useState(false);
+  // 预览：跳过预览的选择持久化
+  const [skipPreview, setSkipPreview] = useState(
+    () => localStorage.getItem(SKIP_PREVIEW_KEY) === "1",
+  );
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewIds, setPreviewIds] = useState<string[] | null>(null);
+  const [previewMeta, setPreviewMeta] = useState<{ matched: number; rangeIgnored: boolean } | null>(
+    null,
+  );
 
   // 测试进行状态
   const [queue, setQueue] = useState<QuizWord[] | null>(null);
 
   const refresh = () => {
     setWords(getWords());
+    setBooks(getBooks());
     setStats(roundStats(direction));
   };
   useEffect(() => {
@@ -47,89 +77,112 @@ export default function TestPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [direction]);
 
-  const testable = useMemo(() => words.filter((w) => !w.excluded), [words]);
+  const testableCount = useMemo(() => words.filter((w) => !w.excluded).length, [words]);
 
-  // ---------- 开始测试 ----------
+  // 选中的词书节点信息
+  const selectedBook = books.find((b) => b.id === bookId) ?? null;
+  const isParentSelected = !!selectedBook && !isChapter(selectedBook);
+  // 词书层（顶层）列表，用于树形选择器
+  const rootBooks = books.filter((b) => b.parentId === null);
 
-  const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+  const buildCriteria = (): SelectionCriteria => ({
+    bookId,
+    type: typeFilter,
+    rangeStart: rangeStart.trim() ? parseInt(rangeStart, 10) : undefined,
+    rangeEnd: rangeEnd.trim() ? parseInt(rangeEnd, 10) : undefined,
+    excludeTested,
+    excludeMastered,
+    count,
+    order: ordered ? "sequential" : "random",
+  });
 
-  const startAll = () => {
-    if (ordered) {
-      // 按词库顺序：从本轮进度继续往后出 N 个（优先未测，保持列表顺序）
-      const p = testable;
-      const tested = new Set(getProgress(direction).testedInRound);
-      const untested = p.filter((w) => !tested.has(w.id));
-      const base = untested.length > 0 ? untested : p;
-      const picked: QuizWord[] = [];
-      for (let i = 0; i < count && i < base.length; i++) picked.push(base[i]);
-      if (picked.length === 0) return;
-      setQueue(picked);
-      return;
-    }
-    // 乱序：按进度队列连续随机抽 N 个（优先未测）
-    const picked: QuizWord[] = [];
-    let lastId: string | undefined;
-    for (let i = 0; i < count; i++) {
-      const w = pickNextWord(lastId, direction);
-      if (!w) break;
-      picked.push(w);
-      lastId = w.id;
-    }
-    if (picked.length === 0) return;
-    setQueue(picked);
+  // ---------- 抽选 + 预览 ----------
+
+  const doSelect = () => {
+    const r = selectWords(buildCriteria());
+    return r;
   };
 
-  const startPicked = () => {
-    // testable 本身就是词库顺序，filter 后保持顺序；乱序时才 shuffle
-    const pool = testable.filter((w) => selected.has(w.id));
-    if (pool.length === 0) return;
-    setQueue(ordered ? pool : shuffle(pool));
-    setPickerOpen(false);
+  const startWithIds = (ids: string[]) => {
+    const picked = getWordsByIds(ids);
+    if (picked.length === 0) return;
+    setQueue(picked);
+    setPreviewIds(null);
+    setPreviewOpen(false);
+  };
+
+  const handleStart = () => {
+    const r = doSelect();
+    if (r.entryIds.length === 0) return;
+    if (skipPreview) {
+      startWithIds(r.entryIds);
+      return;
+    }
+    setPreviewIds(r.entryIds);
+    setPreviewMeta({ matched: r.matchedCount, rangeIgnored: r.rangeIgnored });
+    setPreviewOpen(false); // 默认折叠成摘要
+  };
+
+  const toggleSkipPreview = () => {
+    setSkipPreview((v) => {
+      localStorage.setItem(SKIP_PREVIEW_KEY, v ? "0" : "1");
+      return !v;
+    });
   };
 
   // ---------- 判分回调 ----------
 
   const handleJudged = (word: QuizWord, answer: string, result: QuizJudgeResult) => {
-    markTestedInRound(word.id, direction); // 指定模式也计入当前方向的全库进度
+    markTestedInRound(word.id, direction);
     if (!result.correct) {
       const full = words.find((w) => w.id === word.id);
-      addToWrongBook(full ?? { ...word, type: "word" as const, bookId: "default", orderInBook: 0, mastered: false, testedRounds: 0, lastTestedAt: null, excluded: false }, answer, result.comment);
+      addToWrongBook(
+        full ?? {
+          ...word,
+          type: "word" as const,
+          bookId: "default",
+          orderInBook: 0,
+          mastered: false,
+          testedRounds: 0,
+          lastTestedAt: null,
+          excluded: false,
+        },
+        answer,
+        result.comment,
+      );
     }
   };
 
-  // ---------- 快捷选择 ----------
+  // ---------- 摘要文案 ----------
 
-  const selectAll = () => setSelected(new Set(testable.map((w) => w.id)));
-  const selectNone = () => setSelected(new Set());
-  const applyRange = () => {
-    const m = rangeText.match(/^\s*(\d+)\s*[-–—]\s*(\d+)\s*$/);
-    if (!m) return;
-    const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
-    const [lo, hi] = [Math.min(a, b), Math.max(a, b)];
-    const next = new Set(selected);
-    testable.forEach((w, i) => {
-      const seq = i + 1;
-      if (seq >= lo && seq <= hi) next.add(w.id);
-    });
-    setSelected(next);
+  const criteriaSummary = () => {
+    const parts: string[] = [];
+    parts.push(bookId === "all" ? "全部词书" : (selectedBook?.name ?? "全部词书"));
+    if (isParentSelected) parts.push("含全部章节");
+    if (!isParentSelected && (rangeStart.trim() || rangeEnd.trim())) {
+      parts.push(`范围 ${rangeStart.trim() || 1}–${rangeEnd.trim() || "∞"}`);
+    }
+    if (typeFilter !== "all") parts.push(typeFilter === "word" ? "仅单词" : "仅词组");
+    parts.push(ordered ? "顺序" : "随机");
+    parts.push(`${count} 个`);
+    return parts.join(" · ");
   };
 
-  // ---------- 测试中 ----------
+  // ---------- 测试进行 ----------
 
   if (queue) {
     return (
       <QuizSession
         queue={queue}
         direction={direction}
-        progressText={`本轮第 ${stats.round} 轮 · 已测 ${stats.tested} / ${stats.total}`}
+        progressText={`第 ${stats.round} 轮 · 已测 ${stats.tested} / ${stats.total}`}
         exitText="退出测试"
         onExit={() => setQueue(null)}
         onJudged={handleJudged}
         onFinish={() => {
           celebrateRain();
-          // 全库模式且恰好测满一轮 → 庆功浮层
           const s = roundStats(direction);
-          if (mode === "all" && s.total > 0 && s.tested >= s.total) {
+          if (s.total > 0 && s.tested >= s.total) {
             setRoundFlash(s.round);
             window.setTimeout(() => setRoundFlash(null), 2200);
           }
@@ -142,12 +195,11 @@ export default function TestPage() {
 
   // ---------- 空词库 ----------
 
-  if (testable.length === 0) {
+  if (testableCount === 0) {
     return (
-      <div className="flex flex-col items-center gap-5 pt-24 text-center">
-        <p className="tracking-wide text-white/45">
-          {words.length === 0 ? "词库是空的，先去添加一些单词吧。" : "所有单词都被标记为「不再测」了。"}
-        </p>
+      <div className="mx-auto flex max-w-xl flex-col items-center gap-6 pt-10 text-center">
+        <h1 className="hero-title text-4xl">词库是空的</h1>
+        <p className="text-sm tracking-wide text-white/40">先去添加一些单词，再回来测试。</p>
         <Link to="/words" className="glow-btn min-h-[44px] rounded-full px-8 text-sm tracking-wide">
           去单词管理
         </Link>
@@ -157,6 +209,9 @@ export default function TestPage() {
 
   // ---------- 设置面板 ----------
 
+  const previewWords = previewIds ? getWordsByIds(previewIds) : [];
+  const bookNameOf = (id: string) => books.find((b) => b.id === id)?.name ?? "?";
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <div className="text-center">
@@ -164,7 +219,7 @@ export default function TestPage() {
         <h1 className="hero-title mt-3 text-4xl sm:text-5xl">单词测试</h1>
       </div>
 
-      {/* 轮次庆功浮层：大号衬线数字从模糊到清晰定格 */}
+      {/* 轮次庆功浮层 */}
       {roundFlash !== null && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
           <div className="round-flash text-center">
@@ -187,15 +242,19 @@ export default function TestPage() {
             <span className="mr-2 rounded-full border border-blue-300/30 px-2 py-0.5 text-[10px] text-blue-200/80">
               {direction === "en2zh" ? "英→中" : "中→英"}
             </span>
-            第 {stats.round} 轮 · 已测 <span className="text-blue-200">{stats.tested}</span> / {stats.total}
+            第 {stats.round} 轮 · 已测 <span className="text-blue-200">{stats.tested}</span> /{" "}
+            {stats.total}
           </span>
           <button
             onClick={() => {
-              if (window.confirm("重置全部测试进度，从第 1 轮重新开始？")) resetProgress();
+              if (window.confirm("重置全部测试进度？两个方向的轮次记录都会清零。")) {
+                resetProgress();
+                refresh();
+              }
             }}
-            className="flex min-h-[36px] items-center gap-1.5 text-xs tracking-wide text-white/35 transition-colors hover:text-white"
+            className="flex min-h-[36px] items-center gap-1 text-xs tracking-wide text-white/30 transition-colors hover:text-white/70"
           >
-            <RotateCcw className="h-3.5 w-3.5" /> 重置进度
+            <RotateCcw className="h-3 w-3" /> 重置进度
           </button>
         </div>
         <div className="relative mt-3 h-1.5 overflow-visible rounded-full bg-white/8">
@@ -203,7 +262,6 @@ export default function TestPage() {
             className="h-full rounded-full bg-gradient-to-r from-blue-400/60 to-blue-300 transition-all duration-500"
             style={{ width: stats.total ? `${(stats.tested / stats.total) * 100}%` : "0%" }}
           />
-          {/* 里程碑刻度：25% / 50% / 75% / 100% */}
           {[25, 50, 75, 100].map((m) => {
             const reached = stats.total > 0 && stats.tested / stats.total >= m / 100;
             return (
@@ -222,9 +280,9 @@ export default function TestPage() {
         </div>
       </div>
 
-      {/* 模式选择 */}
+      {/* 条件面板 */}
       <div className="glass-card rounded-2xl p-6">
-        {/* 方向选择：英→中 / 中→英 */}
+        {/* 方向选择 */}
         <div className="mb-5 grid grid-cols-2 gap-3">
           {(
             [
@@ -247,11 +305,142 @@ export default function TestPage() {
           ))}
         </div>
 
-        {/* 出题顺序：按词库顺序 / 乱序 */}
+        {/* 词书选择器（树形：词书 → 章节） */}
+        <div className="mb-5">
+          <label className="text-sm tracking-wide text-white/45">词书范围</label>
+          <div className="mt-2 flex flex-col gap-1.5">
+            <button
+              onClick={() => setBookId("all")}
+              className={`flex min-h-[44px] items-center gap-2 rounded-xl border px-3 text-left text-sm tracking-wide transition-all duration-300 ${
+                bookId === "all"
+                  ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                  : "border-white/10 text-white/50 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              <BookOpen className="h-4 w-4 shrink-0 text-white/40" />
+              全部词书
+            </button>
+            {rootBooks.map((b) => {
+              const chapters = getChapters(b.id);
+              const active = bookId === b.id;
+              return (
+                <div key={b.id}>
+                  <button
+                    onClick={() => setBookId(b.id)}
+                    className={`flex min-h-[44px] w-full items-center gap-2 rounded-xl border px-3 text-left text-sm tracking-wide transition-all duration-300 ${
+                      active
+                        ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                        : "border-white/10 text-white/50 hover:border-white/25 hover:text-white"
+                    }`}
+                  >
+                    <BookOpen className="h-4 w-4 shrink-0 text-white/40" />
+                    <span className="flex-1 truncate">{b.name}</span>
+                    {chapters.length > 0 && (
+                      <span className="font-mono text-[10px] text-white/30">
+                        {chapters.length} 章节
+                      </span>
+                    )}
+                  </button>
+                  {chapters.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setBookId(c.id)}
+                      className={`mt-1.5 flex min-h-[40px] w-full items-center gap-2 rounded-xl border py-1 pl-8 pr-3 text-left text-sm tracking-wide transition-all duration-300 ${
+                        bookId === c.id
+                          ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                          : "border-white/8 text-white/40 hover:border-white/25 hover:text-white"
+                      }`}
+                    >
+                      <CornerDownRight className="h-3.5 w-3.5 shrink-0 text-white/25" />
+                      <span className="flex-1 truncate">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 书内序号范围 */}
+        <div className="mb-5">
+          <label className="text-sm tracking-wide text-white/45">书内序号范围</label>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              value={rangeStart}
+              onChange={(e) => setRangeStart(e.target.value.replace(/[^\d]/g, ""))}
+              disabled={isParentSelected}
+              placeholder="从"
+              className="glass-input min-h-[44px] w-full rounded-xl px-4 font-mono text-sm tracking-wide disabled:opacity-35"
+            />
+            <span className="text-white/25">–</span>
+            <input
+              value={rangeEnd}
+              onChange={(e) => setRangeEnd(e.target.value.replace(/[^\d]/g, ""))}
+              disabled={isParentSelected}
+              placeholder="到"
+              className="glass-input min-h-[44px] w-full rounded-xl px-4 font-mono text-sm tracking-wide disabled:opacity-35"
+            />
+          </div>
+          {isParentSelected && bookId !== "all" && (
+            <p className="mt-2 text-xs tracking-wide text-amber-200/60">
+              父节点按子章节细化，请选具体章节使用范围
+            </p>
+          )}
+        </div>
+
+        {/* 类型筛选 */}
+        <div className="mb-5">
+          <label className="text-sm tracking-wide text-white/45">内容类型</label>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {(
+              [
+                { v: "all", label: "全部" },
+                { v: "word", label: "仅单词" },
+                { v: "phrase", label: "仅词组" },
+              ] as const
+            ).map((t) => (
+              <button
+                key={t.v}
+                onClick={() => setTypeFilter(t.v)}
+                className={`min-h-[40px] rounded-xl border text-sm tracking-wide transition-all duration-300 ${
+                  typeFilter === t.v
+                    ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                    : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 排除项 */}
+        <div className="mb-5 flex flex-wrap gap-2">
+          {(
+            [
+              { v: excludeTested, set: setExcludeTested, label: "排除已测" },
+              { v: excludeMastered, set: setExcludeMastered, label: "排除已掌握" },
+            ] as const
+          ).map((o) => (
+            <button
+              key={o.label}
+              onClick={() => o.set(!o.v)}
+              className={`min-h-[36px] rounded-full border px-4 text-xs tracking-wide transition-all duration-300 ${
+                o.v
+                  ? "border-blue-300/50 bg-blue-300/10 text-blue-100"
+                  : "border-white/10 text-white/40 hover:border-white/25 hover:text-white"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 数量 + 顺序 */}
         <div className="mb-5 grid grid-cols-2 gap-3">
           {(
             [
-              { v: true, label: "按顺序", desc: "按词库列表的序号出题" },
+              { v: true, label: "按顺序", desc: "按书内序号出题" },
               { v: false, label: "乱序", desc: "随机打乱后出题" },
             ] as const
           ).map((o) => (
@@ -270,139 +459,83 @@ export default function TestPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setMode("all")}
-            className={`min-h-[56px] rounded-xl border text-sm tracking-wide transition-all duration-300 ${
-              mode === "all"
-                ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
-                : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
-            }`}
-          >
-            全库测试
-          </button>
-          <button
-            onClick={() => setMode("pick")}
-            className={`min-h-[56px] rounded-xl border text-sm tracking-wide transition-all duration-300 ${
-              mode === "pick"
-                ? "border-blue-300/50 bg-blue-300/10 text-blue-100 shadow-[0_0_18px_rgba(96,165,250,0.15)]"
-                : "border-white/10 text-white/45 hover:border-white/25 hover:text-white"
-            }`}
-          >
-            指定单词测试
-          </button>
+        <div>
+          <label className="text-sm tracking-wide text-white/45">
+            抽取数量 <span className="text-white/25">（转动选择，1 – {Math.max(testableCount, 100)} 个）</span>
+          </label>
+          <div className="mt-2">
+            <CountWheel
+              min={1}
+              max={Math.max(testableCount, 100)}
+              value={count}
+              onChange={setCount}
+              unit="个"
+            />
+          </div>
         </div>
 
-        {mode === "all" ? (
-          <div className="mt-5">
-            <label className="text-sm tracking-wide text-white/45">
-              本次测试数量 <span className="text-white/25">（转动选择，1 – {Math.max(testable.length, 100)} 题）</span>
-            </label>
-            <div className="mt-2">
-              <CountWheel
-                min={1}
-                max={Math.max(testable.length, 100)}
-                value={count}
-                onChange={setCount}
-                unit="题"
-              />
-            </div>
-            <p className="mt-3 text-xs leading-relaxed tracking-wide text-white/30">
-              优先抽本轮没测过的单词；全部测过一遍后自动开启新一轮。数量超过词库总量时会循环抽词。
-            </p>
-          </div>
-        ) : (
-          <div className="mt-5">
+        {/* 结果预览（默认折叠成摘要） */}
+        {previewIds && previewMeta && (
+          <div className="mt-5 rounded-xl border border-blue-300/20 bg-blue-400/5 p-4">
             <button
-              onClick={() => setPickerOpen(true)}
-              className="glass-input flex min-h-[48px] w-full items-center justify-between rounded-xl px-4 text-sm tracking-wide"
+              onClick={() => setPreviewOpen(!previewOpen)}
+              className="flex w-full items-center justify-between text-left"
             >
-              <span className={selected.size ? "text-white" : "text-white/35"}>
-                {selected.size ? `已选 ${selected.size} 个单词` : "点击选择单词…"}
+              <span className="text-sm tracking-wide text-blue-100">
+                {previewMeta.rangeIgnored
+                  ? `命中 ${previewMeta.matched} 个（含全部章节），将抽 ${Math.min(count, previewMeta.matched)} 个`
+                  : `范围命中 ${previewMeta.matched} 个，将抽 ${Math.min(count, previewMeta.matched)} 个`}
               </span>
-              <CheckSquare className="h-4 w-4 text-blue-300/60" />
+              {previewOpen ? (
+                <ChevronUp className="h-4 w-4 text-blue-200/60" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-blue-200/60" />
+              )}
             </button>
+            {previewOpen && (
+              <ul className="mt-3 max-h-64 divide-y divide-white/5 overflow-y-auto">
+                {previewWords.map((w) => (
+                  <li key={w.id} className="flex items-baseline gap-2 py-2 text-sm">
+                    <span className="shrink-0 font-mono text-[10px] text-white/30">
+                      {bookNameOf(w.bookId)} #{w.orderInBook}
+                    </span>
+                    <span className="shrink-0 font-mono text-white">{w.word}</span>
+                    <span className="min-w-0 truncate text-white/45">
+                      {formatMeanings(w.meanings).join("　") || "（无释义）"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
         <button
-          onClick={mode === "all" ? startAll : startPicked}
-          disabled={mode === "pick" && selected.size === 0}
+          onClick={() => (previewIds ? startWithIds(previewIds) : handleStart())}
           className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.08em]"
         >
           <Play className="h-4 w-4" /> 开始测试
         </button>
+
+        <button
+          onClick={toggleSkipPreview}
+          className="mt-3 flex w-full items-center justify-center gap-2 text-xs tracking-wide text-white/35 transition-colors hover:text-white/60"
+        >
+          <span
+            className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
+              skipPreview ? "border-blue-300/60 bg-blue-400/20 text-blue-200" : "border-white/20 text-transparent"
+            }`}
+          >
+            ✓
+          </span>
+          跳过预览直接开始（记住选择）
+        </button>
       </div>
 
-      {/* 指定单词多选面板（弹层） */}
-      {pickerOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center" onClick={() => setPickerOpen(false)}>
-          <div
-            className="glass-nav flex max-h-[80vh] w-full max-w-lg flex-col rounded-t-3xl p-6 sm:rounded-3xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold tracking-wide text-white">选择单词（{selected.size} / {testable.length}）</h2>
-              <button onClick={() => setPickerOpen(false)} className="min-h-[36px] px-3 text-sm text-white/45 hover:text-white">
-                完成
-              </button>
-            </div>
-
-            {/* 快捷选择 */}
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button onClick={selectAll} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide">全选</button>
-              <button onClick={selectNone} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide">全不选</button>
-              <div className="flex items-center gap-2">
-                <input
-                  value={rangeText}
-                  onChange={(e) => setRangeText(e.target.value)}
-                  placeholder="如 1-100"
-                  className="glass-input min-h-[36px] w-24 rounded-lg px-3 font-mono text-xs"
-                />
-                <button onClick={applyRange} className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide">
-                  按序号选
-                </button>
-              </div>
-            </div>
-
-            {/* 单词清单 */}
-            <ul className="mt-4 flex-1 divide-y divide-white/5 overflow-y-auto">
-              {testable.map((w, i) => {
-                const checked = selected.has(w.id);
-                return (
-                  <li key={w.id}>
-                    <button
-                      onClick={() => {
-                        const next = new Set(selected);
-                        if (checked) next.delete(w.id);
-                        else next.add(w.id);
-                        setSelected(next);
-                      }}
-                      className="flex min-h-[48px] w-full items-center gap-3 px-1 text-left"
-                    >
-                      {checked ? (
-                        <CheckSquare className="h-4 w-4 shrink-0 text-blue-300" />
-                      ) : (
-                        <Square className="h-4 w-4 shrink-0 text-white/25" />
-                      )}
-                      <span className="w-8 shrink-0 font-mono text-xs text-white/30">{i + 1}</span>
-                      <span className="font-mono text-sm text-white">{w.word}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <button
-              onClick={startPicked}
-              disabled={selected.size === 0}
-              className="glow-btn mt-4 min-h-[48px] w-full rounded-full text-sm tracking-[0.06em]"
-            >
-              开始测试（{selected.size} 个）
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 当前条件摘要 */}
+      <p className="text-center font-mono text-[11px] tracking-wide text-white/25">
+        {criteriaSummary()}
+      </p>
     </div>
   );
 }
