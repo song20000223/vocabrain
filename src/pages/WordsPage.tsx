@@ -999,7 +999,7 @@ export default function WordsPage() {
                       </span>
                       <span className="mt-0.5 block font-mono text-xs tracking-wide text-white/35">
                         {chapters.length > 0
-                          ? `自身 ${count} 个 · 章节共 ${chapterWords} 个`
+                          ? `${count + chapterWords} 个单词 · ${chapters.length} 个章节`
                           : `${count} 个单词`}
                       </span>
                     </span>
@@ -1007,23 +1007,18 @@ export default function WordsPage() {
                       点开 →
                     </span>
                   </button>
-                  {chapters.map((c) => (
+                  {b.id !== DEFAULT_BOOK_ID && b.id !== PHRASE_BOOK_ID && (
                     <button
-                      key={c.id}
-                      onClick={() => openBookModal(c.id, c.name)}
-                      className="glass-card group ml-6 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl px-4 py-3 text-left transition-all duration-300 hover:border-blue-300/25"
+                      onClick={() => {
+                        openBookModal(b.id, b.name);
+                        setChapterPanelOpen(true);
+                        localStorage.setItem("vocab_chapter_panel", "1");
+                      }}
+                      className="ml-1 text-xs tracking-wide text-white/25 transition-colors hover:text-blue-200"
                     >
-                      <span className="font-mono text-xs text-white/25">↳</span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm tracking-wide text-white/85">
-                          {c.name}
-                        </span>
-                      </span>
-                      <span className="font-mono text-xs tracking-wide text-white/30">
-                        {bookWordCount(c.id)} 个
-                      </span>
+                      + 新建章节
                     </button>
-                  ))}
+                  )}
                 </li>
               );
             })}

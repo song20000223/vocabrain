@@ -3,6 +3,7 @@ import { Volume2, CheckCircle2, XCircle, Flag } from "lucide-react";
 import { formatMeanings } from "@/lib/store";
 import { speak } from "@/lib/speak";
 import { matchDictation } from "@/lib/quickJudge";
+import SessionReview, { type ReviewItem } from "./SessionReview";
 import { celebrateRain, type QuizWord } from "./QuizSession";
 
 interface Props {
@@ -24,6 +25,7 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
   const [phase, setPhase] = useState<"answer" | "result">("answer");
   const [lastCorrect, setLastCorrect] = useState(false);
   const [results, setResults] = useState<boolean[]>([]);
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
 
   const current = queue[index];
   const total = queue.length;
@@ -49,6 +51,7 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
         <p className="text-sm tracking-wide text-white/50">
           共 {total} 个 · 对 {correctCount} 个 · 错 {total - correctCount} 个（已进错题本）
         </p>
+        {reviewItems.length > 0 && <SessionReview items={reviewItems} />}
         <div className="flex gap-3">
           {onExit && (
             <button onClick={onExit} className="ghost-btn min-h-[44px] px-6 text-sm tracking-wide">
@@ -70,6 +73,15 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
     const ok = matchDictation(answer, current.meanings);
     setLastCorrect(ok);
     setResults((r) => [...r, ok]);
+    setReviewItems((arr) => [
+      ...arr,
+      {
+        word: current.word,
+        answer: answer.trim(),
+        correct: ok,
+        standardMeaning: current.meanings.flatMap((m) => m.definitions).join("；") || current.word,
+      },
+    ]);
     if (!ok) onWrong(current, answer.trim());
     setPhase("result");
   };
@@ -82,7 +94,17 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+    <div
+      className="mx-auto flex w-full max-w-xl flex-col gap-6"
+      tabIndex={-1}
+      ref={(el) => { if (phase === "result") el?.focus(); }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && phase === "result") {
+          e.preventDefault();
+          next();
+        }
+      }}
+    >
       <div className="flex items-center justify-between">
         <p className="font-mono text-xs tracking-widest text-white/40">
           听写 {Math.min(index + 1, total)} / {total}

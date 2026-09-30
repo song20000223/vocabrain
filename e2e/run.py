@@ -45,10 +45,11 @@ with sync_playwright() as p:
     # ---- 建词书+章节+加词+词组+导入 ----
     page.locator("input[placeholder='新词书名称，如 雅思核心']").press_sequentially("雅思真经")
     page.click("button:has-text('新建')"); page.wait_for_timeout(400)
-    page.locator("button", has_text="雅思真经").first.click(); page.wait_for_timeout(400)
+    page.locator("button:has-text(\"点开 →\")").filter(has_text="雅思真经").first.click(); page.wait_for_timeout(400)
     page.evaluate("() => { document.querySelector('details').open = true; }")
+    page.wait_for_timeout(300)
     page.locator("input[placeholder='新章节名称，如 Unit 1']").press_sequentially("Unit 1")
-    page.click("button:has-text('新建章节')"); page.wait_for_timeout(400)
+    page.locator("input[placeholder='新章节名称，如 Unit 1']").press("Enter"); page.wait_for_timeout(400)
     page.locator("button[aria-label='关闭']").click(); page.wait_for_timeout(300)
     page.locator("select").first.select_option(label="↳ Unit 1")
     page.locator("input[placeholder='英文单词，如 plateau']").press_sequentially("abandon")
@@ -70,7 +71,7 @@ with sync_playwright() as p:
     ok("词组进我的词组", next(w for w in mine if w["word"]=="take into account")["bookId"]=="__phrase_book__")
 
     # ---- 编辑+笔记 ----
-    page.locator("button", has_text="雅思真经").first.click(); page.wait_for_timeout(400)
+    page.locator("button:has-text(\"点开 →\")").filter(has_text="雅思真经").first.click(); page.wait_for_timeout(400)
     page.evaluate("() => { document.querySelector('details').open = true; }")
     page.locator("button", has_text="↳ Unit 1").first.click(); page.wait_for_timeout(400)
     page.get_by_label("编辑 abandon 的释义").click(); page.wait_for_timeout(200)
@@ -89,11 +90,32 @@ with sync_playwright() as p:
     page.goto(BASE + "/memos", wait_until="networkidle")
     ok("备忘录页可见", "abandon 搭配" in page.locator("body").inner_text())
 
+    # ---- 新增断言：excludeTested 默认勾 + count 转轴生效 ----
+    page.goto(BASE + "/test", wait_until="networkidle")
+    page.wait_for_timeout(400)
+    # 默认勾「排除已测」
+    excl = page.locator("text=排除已测").first
+    checked = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_test_options')||'null')")
+    ok("excludeTested 默认 true", checked is None or checked.get("excludeTested") == True)
+    # 输入框设 2，转轴联动
+    num = page.locator("input[aria-label='抽取数量']")
+    num.press_sequentially("2") if False else None
+    num.click(); num.press("Control+a"); num.press_sequentially("2"); num.blur(); page.wait_for_timeout(300)
+    opts = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_test_options'))")
+    ok("count 输入框持久化为 2", opts["count"] == 2, str(opts["count"]))
+
     # ---- 测试（canyon 答错） ----
     page.goto(BASE + "/test", wait_until="networkidle")
     page.locator("button").filter(has_text="雅思真经").last.click(); page.wait_for_timeout(300)
     ok("父节点范围置灰提示", "章节" in page.locator("body").inner_text())
+    # count 已在前序断言持久化为 2；恢复 3，避免队列长度不符
+    num = page.locator("input[aria-label='抽取数量']")
+    num.click(); num.press("Control+a"); num.press_sequentially("3"); num.blur(); page.wait_for_timeout(300)
     page.locator("button.glow-btn", has_text="开始测试").click(); page.wait_for_timeout(900)
+    # 若 0 命中（上一轮测试残留进度），取消「排除已测」再试
+    if "无匹配单词" in page.locator("body").inner_text():
+        page.locator("text=排除已测").first.click(); page.wait_for_timeout(400)
+        page.locator("button.glow-btn", has_text="开始测试").click(); page.wait_for_timeout(900)
     page.locator("button.glow-btn", has_text="开始测试").click(); page.wait_for_timeout(900)  # 预览→开考
     answer_loop(page, 3, ["canyon"], "quiz")
     import time
@@ -103,9 +125,27 @@ with sync_playwright() as p:
     wc = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words')).find(w=>w.word==='canyon')")
     ok("测试更新 testedRounds", wc["testedRounds"]>=1)
 
+    # ---- 中途退出重抽：已测词不再出现（excludeTested 默认勾） ----
+    page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
+    # 全部 3 词都已测过（answer_loop 答了 3 题）→ 预览应 0 命中
+    page.locator("button").filter(has_text="雅思真经").last.click(); page.wait_for_timeout(300)
+    page.locator("button.glow-btn", has_text="开始测试").click(); page.wait_for_timeout(900)
+    body = page.locator("body").inner_text()
+    ok("中途退出重抽已测词被排除", "无匹配单词" in body or "命中 0" in body, body[body.find("命中"):body.find("命中")+15] if "命中" in body else "")
+    # 手动取消排除已测 → 能抽到
+    page.locator("text=排除已测").first.click(); page.wait_for_timeout(300)
+    opts2 = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_test_options'))")
+    ok("取消勾后持久化 excludeTested=false", opts2["excludeTested"] == False)
+    page.locator("text=排除已测").first.click(); page.wait_for_timeout(300)  # 恢复勾选，不影响后续听写段
+
+
     # ---- 听写（全答错） ----
     page.goto(BASE + "/test", wait_until="networkidle")
     page.click("button:has-text('听写')")
+    page.wait_for_timeout(300)
+    # 默认勾「排除已测」，前序 quiz 已测过 → 取消勾选再开
+    if "排除已测" in page.locator("body").inner_text():
+        page.locator("text=排除已测").first.click(); page.wait_for_timeout(400)
     page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(900)
     page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(900)  # 预览→开考
     before = {w["word"]: w["testedRounds"] for w in page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))") if w["word"] in ("abandon","chamber","canyon")}
@@ -120,7 +160,7 @@ with sync_playwright() as p:
 
     # ---- 导出（父书含章节；全不勾置灰；勾选后导出） ----
     page.goto(BASE + "/words", wait_until="networkidle")
-    page.locator("button", has_text="雅思真经").first.click(); page.wait_for_timeout(400)
+    page.locator("button:has-text(\"点开 →\")").filter(has_text="雅思真经").first.click(); page.wait_for_timeout(400)
     page.get_by_title("导出当前范围单词").click(); page.wait_for_timeout(300)
     page.locator("label", has_text="已背").locator("input").uncheck()
     page.locator("label", has_text="未背").locator("input").uncheck()

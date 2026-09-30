@@ -16,6 +16,7 @@ import QuizSession, {
 import DictationSession from "@/components/DictationSession";
 import ExportDialog from "@/components/ExportDialog";
 import CountWheel from "@/components/CountWheel";
+import SessionReview, { type ReviewItem } from "@/components/SessionReview";
 import {
   getWords,
   getBooks,
@@ -45,6 +46,7 @@ interface SavedOptions {
   ordered: boolean;
   typeFilter: EntryType | "all";
   bookId: string;
+  count: number;
 }
 
 function loadOptions(): SavedOptions | null {
@@ -70,16 +72,16 @@ export default function TestPage() {
   const [typeFilter, setTypeFilter] = useState<EntryType | "all">(saved?.typeFilter ?? "all");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
-  const [count, setCount] = useState(10);
+  const [count, setCount] = useState(saved?.count ?? 10);
   const [ordered, setOrdered] = useState(saved?.ordered ?? true);
-  const [excludeTested, setExcludeTested] = useState(saved?.excludeTested ?? false);
+  const [excludeTested, setExcludeTested] = useState(saved?.excludeTested ?? true);
   const [excludeMastered, setExcludeMastered] = useState(saved?.excludeMastered ?? false);
 
   // 条件选项持久化（词书/类型/顺序/排除项）
   useEffect(() => {
-    const o: SavedOptions = { excludeTested, excludeMastered, ordered, typeFilter, bookId };
+    const o: SavedOptions = { excludeTested, excludeMastered, ordered, typeFilter, bookId, count };
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(o));
-  }, [excludeTested, excludeMastered, ordered, typeFilter, bookId]);
+  }, [excludeTested, excludeMastered, ordered, typeFilter, bookId, count]);
   // 预览：跳过预览的选择持久化
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "1",
@@ -98,6 +100,7 @@ export default function TestPage() {
   const [dictQueue, setDictQueue] = useState<QuizWord[] | null>(null);
   // 最近一次完成会话的 id 快照（测试结果导出用）
   const [lastSessionIds, setLastSessionIds] = useState<string[] | null>(null);
+  const [lastReview, setLastReview] = useState<ReviewItem[] | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   useEffect(() => {
     const isDict = searchParams.get("mode") === "dictation";
@@ -294,6 +297,7 @@ export default function TestPage() {
         exitText="退出测试"
         onExit={() => setQueue(null)}
         onJudged={handleJudged}
+        onReview={setLastReview}
         onFinish={() => {
           celebrateRain();
           setLastSessionIds(queue.map((w) => w.id));
@@ -341,6 +345,18 @@ export default function TestPage() {
             className="shrink-0 text-xs tracking-wide text-white/35 underline-offset-4 hover:text-blue-200 hover:underline"
           >
             导出本次结果
+          </button>
+        </div>
+      )}
+      {lastReview && lastReview.length > 0 && !queue && !dictQueue && (
+        <div className="glass-card flex flex-col items-center gap-3 rounded-2xl px-5 py-4">
+          <p className="text-xs tracking-[0.2em] text-white/35">本轮回顾</p>
+          <SessionReview items={lastReview} />
+          <button
+            onClick={() => setLastReview(null)}
+            className="text-xs tracking-wide text-white/30 hover:text-white/60"
+          >
+            收起回顾
           </button>
         </div>
       )}
@@ -636,6 +652,7 @@ export default function TestPage() {
               value={count}
               onChange={setCount}
               unit="个"
+              step={5}
             />
           </div>
         </div>

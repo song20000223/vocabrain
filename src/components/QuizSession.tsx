@@ -4,6 +4,7 @@ import { trpc } from "@/providers/trpc";
 import { formatMeanings, type MeaningGroup } from "@/lib/store";
 import { quickLocalJudge, checkSpelling, LOCAL_JUDGE_COMMENT, type PrefetchedResult } from "@/lib/quickJudge";
 import { hasBackend } from "@/lib/apiMode";
+import { type ReviewItem } from "@/components/SessionReview";
 
 /** 「AI 不可用 → 本地判分」降级提示：同一页面会话只提示一次 */
 let aiFallbackNotified = false;
@@ -36,7 +37,8 @@ interface Props {
   direction?: QuizDirection;
   onJudged: (word: QuizWord, answer: string, result: QuizJudgeResult) => void;
   onCorrect?: (word: QuizWord) => void;
-  onFinish?: () => void;
+  onFinish?: (review?: ReviewItem[]) => void;
+  onReview?: (items: ReviewItem[]) => void;
   progressText: string;
   exitText?: string;
   onExit?: () => void;
@@ -77,6 +79,7 @@ export default function QuizSession({
   onJudged,
   onCorrect,
   onFinish,
+  onReview,
   progressText,
   exitText,
   onExit,
@@ -84,6 +87,8 @@ export default function QuizSession({
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<QuizJudgeResult | null>(null);
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  const [forgot, setForgot] = useState(false);
   const [error, setError] = useState("");
   const judge = trpc.judge.useMutation();
 
@@ -199,6 +204,7 @@ export default function QuizSession({
         comment: correct ? "拼写正确！" : `正确拼写：${current.word}`,
       };
       setResult(res);
+      setReviewItems((arr) => [...arr, { word: current.word, answer: ans, correct, standardMeaning: current.word }]);
       judgedRef.current(current, ans, res);
       if (correct) correctRef.current?.(current);
       else {
@@ -249,6 +255,7 @@ export default function QuizSession({
         }
       }
       setResult(res);
+      setReviewItems((arr) => [...arr, { word: current.word, answer: ans, correct: res.correct, standardMeaning: res.standardMeaning }]);
       judgedRef.current(current, ans, res);
       if (res.correct) correctRef.current?.(current);
     } catch (e) {
@@ -256,16 +263,34 @@ export default function QuizSession({
     }
   }, [current, answer, judge.isPending, isReverse, callJudge]);
 
+  const forgotWord = useCallback(() => {
+    if (!current || result) return;
+    const standard = isReverse
+      ? current.word
+      : formatMeanings(current.meanings).join("；") || current.word;
+    const res: QuizJudgeResult = {
+      correct: false,
+      standardMeaning: standard,
+      comment: "已加入错题本，下次复习",
+    };
+    setForgot(true);
+    setResult(res);
+    setReviewItems((arr) => [...arr, { word: current.word, answer: "（忘记了）", correct: false, standardMeaning: standard }]);
+    judgedRef.current(current, "（忘记了）", res);
+  }, [current, result, isReverse]);
+
   const next = useCallback(() => {
     if (index + 1 >= queue.length) {
-      onFinish?.();
+      onReview?.(reviewItems);
+      onFinish?.(reviewItems);
       return;
     }
     setIndex(index + 1);
     setAnswer("");
     setResult(null);
     setError("");
-  }, [index, queue.length, onFinish]);
+    setForgot(false);
+  }, [index, queue.length, onFinish, onReview, reviewItems]);
 
   useEffect(() => {
     if (index >= queue.length && queue.length > 0) setIndex(0);
@@ -282,7 +307,18 @@ export default function QuizSession({
     : undefined;
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div
+      className="mx-auto flex max-w-xl flex-col gap-6"
+      tabIndex={-1}
+      ref={(el) => { if (result) el?.focus(); }}
+      onKeyDown={(e) => {
+        // 结果出现后按 Enter 直接下一题（焦点可能不在输入框上）
+        if (e.key === "Enter" && result) {
+          e.preventDefault();
+          next();
+        }
+      }}
+    >
       {/* 顶部进度 */}
       <div className="flex items-center justify-between">
         <span className="font-mono text-xs tracking-[0.2em] text-blue-200/70">
@@ -341,6 +377,18 @@ export default function QuizSession({
         )}
       </div>
 
+      {/* 忘记了：直接显示答案，记错误并进错题本 */}
+      {!result && (
+        <div className="flex justify-end">
+          <button
+            onClick={forgotWord}
+            className="text-xs tracking-wide text-white/30 transition-colors hover:text-amber-200"
+          >
+            忘记了
+          </button>
+        </div>
+      )}
+
       {/* 作答区 */}
       <textarea
         value={answer}
@@ -358,7 +406,7 @@ export default function QuizSession({
             : "在这里手写中文释义……（回车提交）"
         }
         rows={isReverse ? 1 : 3}
-        disabled={!!result || (isReverse && !promptText)}
+        disabled={!!result || forgot || (isReverse && !promptText)}
         className="glass-input w-full resize-none rounded-2xl p-4 tracking-wide disabled:opacity-60"
         autoFocus
       />
