@@ -163,8 +163,12 @@ export default function TestPage() {
   // ---------- 范围校验 ----------
   const rangeError = useMemo(() => {
     if (isParentSelected && bookId !== "all") return null; // 置灰时另有提示
-    const s = rangeStart.trim() ? parseInt(rangeStart, 10) : null;
-    const e = rangeEnd.trim() ? parseInt(rangeEnd, 10) : null;
+    const rawS = rangeStart.trim();
+    const rawE = rangeEnd.trim();
+    if ((rawS && !/^\d+$/.test(rawS)) || (rawE && !/^\d+$/.test(rawE)))
+      return "范围请输入正整数序号";
+    const s = rawS ? parseInt(rawS, 10) : null;
+    const e = rawE ? parseInt(rawE, 10) : null;
     if (s !== null && e !== null && s > e) return "起始序号不能大于结束序号";
     // 超出该书最大序号时提示（仅叶子/单书时校验）
     if (bookId !== "all" && !isParentSelected) {

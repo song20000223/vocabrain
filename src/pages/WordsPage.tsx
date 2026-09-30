@@ -109,122 +109,65 @@ function WordRow({
 
   return (
     <li
-      className={`glass-card rounded-2xl p-4 transition-all duration-300 ${
+      className={`glass-card rounded-xl px-4 py-2.5 transition-all duration-300 ${
         it.excluded ? "opacity-45" : ""
       } ${checked ? "!border-blue-300/40" : ""} ${selecting ? "cursor-pointer" : ""}`}
       onClick={selecting ? () => onToggle?.(it.id) : undefined}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+      {/* 主行：单词左对齐，释义右对齐，同一行 */}
+      <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {selecting && (
             <span
-              className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
                 checked ? "border-blue-300 bg-blue-400/30 text-blue-100" : "border-white/25 text-transparent"
               }`}
             >
               <CircleCheck className="h-3.5 w-3.5" />
             </span>
           )}
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-base tracking-wide text-white">#{it.orderInBook}</span>
-              <span className="font-mono text-lg tracking-wide text-white">{it.word}</span>
-              {it.type === "phrase" && (
-                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
-                  词组
-                </span>
-              )}
-              {it.mastered && (
-                <span className="rounded-full border border-emerald-300/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-200/70">
-                  已掌握
-                </span>
-              )}
-              {it.excluded && (
-                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
-                  不再测
-                </span>
-              )}
-              {it.testedRounds > 0 && (
-                <span className="font-mono text-[10px] tracking-wide text-white/25">
-                  已测 {it.testedRounds} 次
-                </span>
-              )}
-            </div>
-
-            {/* 释义：查看态 / 编辑态 */}
-            {editing ? (
-              <div className="mt-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                {groups.map((g, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <select
-                      value={g.pos}
-                      onChange={(e) =>
-                        setGroups(groups.map((x, j) => (j === i ? { ...x, pos: e.target.value } : x)))
-                      }
-                      className="glass-input min-h-[36px] w-24 rounded-lg px-2 text-xs"
-                    >
-                      {["", ...POS_OPTIONS.filter((p) => p !== "其他")].map((p) => (
-                        <option key={p} value={p} className="bg-[#0a0d12]">
-                          {p === "" ? "无词性" : p}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={g.text}
-                      onChange={(e) =>
-                        setGroups(groups.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))
-                      }
-                      placeholder="多个义项用 ；或 / 分隔"
-                      className="glass-input min-h-[36px] flex-1 rounded-lg px-3 text-sm"
-                    />
-                    <button
-                      onClick={() => setGroups(groups.filter((_, j) => j !== i))}
-                      aria-label="删除该行义项"
-                      className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full text-white/25 hover:text-red-300"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setGroups([...groups, { pos: "", text: "" }])}
-                    className="ghost-btn min-h-[32px] px-3 text-xs"
-                  >
-                    <Plus className="h-3 w-3" /> 加词性
-                  </button>
-                  <span className="flex-1" />
-                  <button
-                    onClick={() => setEditing(false)}
-                    className="min-h-[32px] rounded-full px-3 text-xs text-white/40 hover:text-white"
-                  >
-                    取消
-                  </button>
-                  <button onClick={saveEdit} className="glow-btn min-h-[32px] rounded-full px-4 text-xs">
-                    保存
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-1.5 space-y-0.5 text-sm tracking-wide text-white/55">
-                {formatMeanings(it.meanings).length > 0 ? (
-                  formatMeanings(it.meanings).map((line, i) => <p key={i}>{line}</p>)
-                ) : (
-                  <p className="text-white/25">（暂无释义，判分时由 AI 判断）</p>
-                )}
-              </div>
+          {/* 左：序号 + 单词 + 徽章 */}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="font-mono text-sm tracking-wide text-white/40">#{it.orderInBook}</span>
+            <span className="font-mono text-base tracking-wide text-white">{it.word}</span>
+            {it.type === "phrase" && (
+              <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
+                词组
+              </span>
             )}
-            {fallbackTip && (
-              <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
-                当前环境无英式语音，已用系统默认语音播放
-              </p>
+            {it.mastered && (
+              <span className="rounded-full border border-emerald-300/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-200/70">
+                已掌握
+              </span>
+            )}
+            {it.excluded && (
+              <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
+                不再测
+              </span>
+            )}
+            {it.testedRounds > 0 && (
+              <span className="font-mono text-[10px] tracking-wide text-white/25">
+                已测 {it.testedRounds} 次
+              </span>
             )}
           </div>
+          {/* 右：释义（右对齐，与单词同一行） */}
+          {!editing && (
+            <div className="hidden max-w-[50%] shrink-0 text-right text-sm tracking-wide text-white/55 sm:block">
+              {formatMeanings(it.meanings).length > 0 ? (
+                <p className="truncate" title={formatMeanings(it.meanings).join(" / ")}>
+                  {formatMeanings(it.meanings).join(" · ")}
+                </p>
+              ) : (
+                <p className="text-white/25">（暂无释义）</p>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 行操作：编辑 / 发音 / 不再测 / 记笔记(占位) / 删除 */}
+        {/* 行操作：编辑 / 发音 / 不再测 / 记笔记(占位) / 删除（紧凑尺寸） */}
         {!selecting && !editing && (
-          <div className="flex shrink-0 items-center">
+          <div className="flex shrink-0 items-center -mr-2">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -232,9 +175,9 @@ function WordRow({
               }}
               aria-label={`编辑 ${it.word} 的释义`}
               title="编辑释义"
-              className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
+              className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
             >
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={(e) => {
@@ -243,9 +186,9 @@ function WordRow({
               }}
               aria-label={`朗读 ${it.word}`}
               title="发音"
-              className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
+              className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
             >
-              <Volume2 className="h-4 w-4" />
+              <Volume2 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={(e) => {
@@ -255,20 +198,20 @@ function WordRow({
               }}
               aria-label={it.excluded ? "恢复测试" : "不再测"}
               title={it.excluded ? "恢复测试" : "不再测"}
-              className={`flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full transition-colors duration-300 ${
+              className={`flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full transition-colors duration-300 ${
                 it.excluded ? "text-blue-300" : "text-white/25 hover:text-blue-200"
               }`}
             >
-              {it.excluded ? <CircleCheck className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+              {it.excluded ? <CircleCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
             </button>
             {/* 记笔记：S6 接入，先占位 */}
             <button
               disabled
               aria-label="记笔记（即将上线）"
               title="记笔记（S6 上线）"
-              className="flex min-h-[40px] min-w-[40px] cursor-not-allowed items-center justify-center rounded-full text-white/12"
+              className="flex min-h-[32px] min-w-[32px] cursor-not-allowed items-center justify-center rounded-full text-white/12"
             >
-              <StickyNote className="h-4 w-4" />
+              <StickyNote className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={(e) => {
@@ -277,13 +220,81 @@ function WordRow({
               }}
               aria-label={`删除 ${it.word}`}
               title="删除"
-              className="flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
+              className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
       </div>
+
+      {/* 窄屏补一行释义（sm 以下右侧放不下时） */}
+      {!editing && (
+        <p className="mt-0.5 truncate text-xs tracking-wide text-white/45 sm:hidden">
+          {formatMeanings(it.meanings).join(" · ") || "（暂无释义）"}
+        </p>
+      )}
+
+      {/* 编辑态：占整宽，位于主行下方 */}
+      {editing && (
+        <div className="mt-2 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+          {groups.map((g, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <select
+                value={g.pos}
+                onChange={(e) =>
+                  setGroups(groups.map((x, j) => (j === i ? { ...x, pos: e.target.value } : x)))
+                }
+                className="glass-input min-h-[36px] w-24 rounded-lg px-2 text-xs"
+              >
+                {["", ...POS_OPTIONS.filter((p) => p !== "其他")].map((p) => (
+                  <option key={p} value={p} className="bg-[#0a0d12]">
+                    {p === "" ? "无词性" : p}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={g.text}
+                onChange={(e) =>
+                  setGroups(groups.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))
+                }
+                placeholder="多个义项用 ；或 / 分隔"
+                className="glass-input min-h-[36px] flex-1 rounded-lg px-3 text-sm"
+              />
+              <button
+                onClick={() => setGroups(groups.filter((_, j) => j !== i))}
+                aria-label="删除该行义项"
+                className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full text-white/25 hover:text-red-300"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setGroups([...groups, { pos: "", text: "" }])}
+              className="ghost-btn min-h-[32px] px-3 text-xs"
+            >
+              <Plus className="h-3 w-3" /> 加词性
+            </button>
+            <span className="flex-1" />
+            <button
+              onClick={() => setEditing(false)}
+              className="min-h-[32px] rounded-full px-3 text-xs text-white/40 hover:text-white"
+            >
+              取消
+            </button>
+            <button onClick={saveEdit} className="glow-btn min-h-[32px] rounded-full px-4 text-xs">
+              保存
+            </button>
+          </div>
+        </div>
+      )}
+      {fallbackTip && (
+        <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
+          当前环境无英式语音，已用系统默认语音播放
+        </p>
+      )}
     </li>
   );
 }
@@ -322,8 +333,38 @@ export default function WordsPage() {
   // 批量操作
   const [selecting, setSelecting] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  // 分页（词书弹窗内列表）
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<10 | 15 | 20>(15);
+  const [jumpText, setJumpText] = useState("");
 
   const navigate = useNavigate();
+
+  /** 弹窗内当前页单词：按 orderInBook 排序后切片，不做全局序号换算 */
+  const openBookWords = useMemo(() => {
+    if (!openBookId) return [] as WordItem[];
+    const sorted = words
+      .filter((w) => w.bookId === openBookId)
+      .slice()
+      .sort((a, b) => a.orderInBook - b.orderInBook);
+    const start = (page - 1) * pageSize;
+    return sorted.slice(start, start + pageSize);
+  }, [words, openBookId, page, pageSize]);
+  /** 弹窗内全部单词数（分页分母） */
+  const openBookTotal = useMemo(
+    () => (openBookId ? words.filter((w) => w.bookId === openBookId).length : 0),
+    [words, openBookId],
+  );
+  const pageCount = Math.max(1, Math.ceil(openBookTotal / pageSize));
+
+  const openBookModal = (id: string, name: string) => {
+    setOpenBookId(id);
+    setRenaming(false);
+    setRenameText(name);
+    setPage(1);
+    setJumpText("");
+    exitSelecting();
+  };
 
   const refresh = () => {
     setWords(getWords());
@@ -500,7 +541,6 @@ export default function WordsPage() {
   const bookWordCount = (id: string) => words.filter((w) => w.bookId === id).length;
   const rootBooks = books.filter((b) => b.parentId === null);
   const openBook = books.find((b) => b.id === openBookId) ?? null;
-  const openBookWords = openBookId ? words.filter((w) => w.bookId === openBookId) : [];
   const openBookIsChapter = openBook?.parentId != null;
   const openBookChapters = openBook && !openBookIsChapter ? getChapters(openBook.id) : [];
 
@@ -806,17 +846,11 @@ export default function WordsPage() {
             {rootBooks.map((b) => {
               const chapters = getChapters(b.id);
               const count = bookWordCount(b.id);
-              const total = count + chapters.reduce((s, c) => s + bookWordCount(c.id), 0);
-              const openThis = (id: string, name: string) => {
-                setOpenBookId(id);
-                setRenaming(false);
-                setRenameText(name);
-                exitSelecting();
-              };
+              const chapterWords = chapters.reduce((s, c) => s + bookWordCount(c.id), 0);
               return (
                 <li key={b.id} className="flex flex-col gap-2">
                   <button
-                    onClick={() => openThis(b.id, b.name)}
+                    onClick={() => openBookModal(b.id, b.name)}
                     className="glass-card group flex w-full items-center gap-4 rounded-2xl p-5 text-left transition-all duration-300 hover:border-blue-300/25"
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-400/10 text-blue-200">
@@ -828,7 +862,7 @@ export default function WordsPage() {
                       </span>
                       <span className="mt-0.5 block font-mono text-xs tracking-wide text-white/35">
                         {chapters.length > 0
-                          ? `${total} 个单词 · ${chapters.length} 个章节`
+                          ? `自身 ${count} 个 · 章节共 ${chapterWords} 个`
                           : `${count} 个单词`}
                       </span>
                     </span>
@@ -839,7 +873,7 @@ export default function WordsPage() {
                   {chapters.map((c) => (
                     <button
                       key={c.id}
-                      onClick={() => openThis(c.id, c.name)}
+                      onClick={() => openBookModal(c.id, c.name)}
                       className="glass-card group ml-6 flex w-[calc(100%-1.5rem)] items-center gap-3 rounded-xl px-4 py-3 text-left transition-all duration-300 hover:border-blue-300/25"
                     >
                       <span className="font-mono text-xs text-white/25">↳</span>
@@ -906,7 +940,7 @@ export default function WordsPage() {
                     <h3 className="truncate text-xl font-semibold tracking-wide text-white">
                       {openBook.name}
                     </h3>
-                    {openBook.id !== DEFAULT_BOOK_ID && openBook.id !== PHRASE_BOOK_ID && (
+                    {openBook.id !== DEFAULT_BOOK_ID && (
                       <button
                         onClick={() => setRenaming(true)}
                         aria-label="重命名词书"
@@ -918,15 +952,12 @@ export default function WordsPage() {
                   </div>
                 )}
                 <p className="mt-1 font-mono text-xs tracking-wide text-white/35">
-                  {openBookWords.length} 个单词
+                  {openBookTotal} 个单词
                   {!openBookIsChapter && openBookChapters.length > 0 &&
-                    ` · ${openBookChapters.length} 个章节（共 ${
-                      openBookWords.length +
-                      openBookChapters.reduce((s, c) => s + bookWordCount(c.id), 0)
-                    } 个）`}
+                    ` · 章节共 ${openBookChapters.reduce((s, c) => s + bookWordCount(c.id), 0)} 个`}
                 </p>
               </div>
-              {openBookWords.length > 0 && (
+              {openBookTotal > 0 && (
                 <button
                   onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
                   className={`ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide ${
@@ -949,7 +980,7 @@ export default function WordsPage() {
             </div>
 
             {/* 批量操作工具条 */}
-            {selecting && openBookWords.length > 0 && (
+            {selecting && openBookTotal > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-blue-300/20 bg-blue-400/5 px-4 py-2.5">
                 <button
                   onClick={() =>
@@ -959,7 +990,7 @@ export default function WordsPage() {
                   }
                   className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200"
                 >
-                  {allChecked ? "取消全选" : "全选"}
+                  {allChecked ? "取消全选" : "全选本页"}
                 </button>
                 <span className="font-mono text-xs tracking-wide text-white/40">
                   已选 {checkedIds.size} 个
@@ -1002,7 +1033,7 @@ export default function WordsPage() {
                   这本词书还是空的。在「手动添加 / 批量导入」里选择它，把单词加进来。
                 </p>
               ) : (
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col gap-2">
                   {openBookWords.map((it) => (
                     <WordRow
                       key={it.id}
@@ -1017,6 +1048,61 @@ export default function WordsPage() {
               )}
             </div>
 
+            {/* 分页条：上一页 / 页码 / 下一页 / 跳转 / 每页数量 / 范围文案 */}
+            {openBookTotal > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/8 pt-3">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="min-h-[32px] rounded-full border border-white/15 px-3 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"
+                >
+                  上一页
+                </button>
+                <span className="font-mono text-xs tracking-wide text-white/50">
+                  {page} / {pageCount}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  disabled={page >= pageCount}
+                  className="min-h-[32px] rounded-full border border-white/15 px-3 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"
+                >
+                  下一页
+                </button>
+                <input
+                  value={jumpText}
+                  onChange={(e) => setJumpText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    const n = parseInt(jumpText, 10);
+                    if (!Number.isNaN(n)) setPage(Math.min(pageCount, Math.max(1, n)));
+                    setJumpText("");
+                  }}
+                  placeholder="跳页"
+                  aria-label="跳转到页码"
+                  className="glass-input min-h-[32px] w-16 rounded-full px-3 text-center text-xs"
+                />
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value) as 10 | 15 | 20);
+                    setPage(1);
+                  }}
+                  aria-label="每页数量"
+                  className="glass-input min-h-[32px] rounded-full px-2 text-xs"
+                >
+                  {[10, 15, 20].map((n) => (
+                    <option key={n} value={n} className="bg-[#0a0d12]">
+                      {n} / 页
+                    </option>
+                  ))}
+                </select>
+                <span className="flex-1" />
+                <span className="font-mono text-xs tracking-wide text-white/40">
+                  第 {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, openBookTotal)} / 共 {openBookTotal} 个
+                </span>
+              </div>
+            )}
+
             {/* 章节管理：仅词书（非章节）显示；两层结构，章节不能再建子层 */}
             {!openBookIsChapter && (
               <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4">
@@ -1028,12 +1114,7 @@ export default function WordsPage() {
                     {openBookChapters.map((c) => (
                       <li key={c.id} className="flex items-center gap-2">
                         <button
-                          onClick={() => {
-                            setOpenBookId(c.id);
-                            setRenaming(false);
-                            setRenameText(c.name);
-                            exitSelecting();
-                          }}
+                          onClick={() => openBookModal(c.id, c.name)}
                           className="min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm tracking-wide text-white/70 transition-colors hover:bg-white/5 hover:text-blue-200"
                         >
                           ↳ {c.name}
