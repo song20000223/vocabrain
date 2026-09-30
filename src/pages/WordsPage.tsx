@@ -109,7 +109,7 @@ function WordRow({
 
   return (
     <li
-      className={`glass-card rounded-xl px-4 py-2.5 transition-all duration-300 ${
+      className={`glass-card rounded-lg px-3 py-1.5 transition-all duration-300 ${
         it.excluded ? "opacity-45" : ""
       } ${checked ? "!border-blue-300/40" : ""} ${selecting ? "cursor-pointer" : ""}`}
       onClick={selecting ? () => onToggle?.(it.id) : undefined}
@@ -175,7 +175,7 @@ function WordRow({
               }}
               aria-label={`编辑 ${it.word} 的释义`}
               title="编辑释义"
-              className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
+              className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -186,7 +186,7 @@ function WordRow({
               }}
               aria-label={`朗读 ${it.word}`}
               title="发音"
-              className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
+              className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
             >
               <Volume2 className="h-3.5 w-3.5" />
             </button>
@@ -198,7 +198,7 @@ function WordRow({
               }}
               aria-label={it.excluded ? "恢复测试" : "不再测"}
               title={it.excluded ? "恢复测试" : "不再测"}
-              className={`flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full transition-colors duration-300 ${
+              className={`flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full transition-colors duration-300 ${
                 it.excluded ? "text-blue-300" : "text-white/25 hover:text-blue-200"
               }`}
             >
@@ -209,7 +209,7 @@ function WordRow({
               disabled
               aria-label="记笔记（即将上线）"
               title="记笔记（S6 上线）"
-              className="flex min-h-[32px] min-w-[32px] cursor-not-allowed items-center justify-center rounded-full text-white/12"
+              className="flex min-h-[28px] min-w-[28px] cursor-not-allowed items-center justify-center rounded-full text-white/12"
             >
               <StickyNote className="h-3.5 w-3.5" />
             </button>
@@ -220,7 +220,7 @@ function WordRow({
               }}
               aria-label={`删除 ${it.word}`}
               title="删除"
-              className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
+              className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -904,7 +904,7 @@ export default function WordsPage() {
           }}
         >
           <div
-            className="glass-card flex max-h-[85vh] w-full max-w-2xl flex-col rounded-t-3xl p-6 sm:rounded-3xl"
+            className="glass-card flex h-[92vh] max-h-[92vh] w-full max-w-2xl flex-col rounded-t-3xl p-5 pb-3 sm:rounded-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -1033,7 +1033,7 @@ export default function WordsPage() {
                   这本词书还是空的。在「手动添加 / 批量导入」里选择它，把单词加进来。
                 </p>
               ) : (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-1.5">
                   {openBookWords.map((it) => (
                     <WordRow
                       key={it.id}
@@ -1103,12 +1103,13 @@ export default function WordsPage() {
               </div>
             )}
 
-            {/* 章节管理：仅词书（非章节）显示；两层结构，章节不能再建子层 */}
+            {/* 章节管理：仅词书（非章节）显示；默认收起，把高度让给单词列表 */}
             {!openBookIsChapter && (
-              <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] p-4">
-                <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-white/30">
-                  章节（共 {openBookChapters.length} 个）
-                </p>
+              <details className="mt-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5">
+                <summary className="cursor-pointer select-none font-mono text-[10px] uppercase tracking-widest text-white/30 hover:text-white/50">
+                  章节管理（共 {openBookChapters.length} 个）▾
+                </summary>
+                <div className="pt-3">
                 {openBookChapters.length > 0 && (
                   <ul className="mb-3 flex flex-col gap-1.5">
                     {openBookChapters.map((c) => (
@@ -1142,7 +1143,8 @@ export default function WordsPage() {
                     <FolderPlus className="h-3.5 w-3.5" /> 新建章节
                   </button>
                 </div>
-              </div>
+                </div>
+              </details>
             )}
 
             {openBook.id !== DEFAULT_BOOK_ID && openBook.id !== PHRASE_BOOK_ID && (
