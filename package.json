@@ -12,10 +12,7 @@
     "start": "NODE_ENV=production node dist/boot.js",
     "check": "tsc -b",
     "format": "prettier --write .",
-    "test": "vitest run",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "test": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -77,9 +74,7 @@
     "@hono/node-server": "^1.14.3",
     "superjson": "^2.2.6",
     "ai": "6.0.290",
-    "@ai-sdk/openai-compatible": "2.0.78",
-    "drizzle-orm": "^0.45.1",
-    "mysql2": "^3.14.1"
+    "@ai-sdk/openai-compatible": "2.0.78"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -103,7 +98,6 @@
     "@hono/vite-dev-server": "^0.19.0",
     "esbuild": "^0.27.2",
     "prettier": "^3.7.4",
-    "vitest": "^4.0.16",
-    "drizzle-kit": "^0.31.8"
+    "vitest": "^4.0.16"
   }
 }

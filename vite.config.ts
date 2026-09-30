@@ -14,8 +14,6 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
       "@contracts": path.resolve(__dirname, "./contracts"),
-      "@db": path.resolve(__dirname, "./db"),
-      "db": path.resolve(__dirname, "./db"),
     },
   },
   envDir: path.resolve(__dirname),

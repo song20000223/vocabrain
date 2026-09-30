@@ -1,16 +1,6 @@
 import "dotenv/config";
 
-function required(name: string): string {
-  const value = process.env[name];
-  if (!value && process.env.NODE_ENV === "production") {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value ?? "";
-}
-
+/** 本项目无数据库、无 OAuth，仅保留生产判定。 */
 export const env = {
-  appId: required("APP_ID"),
-  appSecret: required("APP_SECRET"),
   isProduction: process.env.NODE_ENV === "production",
-  databaseUrl: required("DATABASE_URL"),
 };
