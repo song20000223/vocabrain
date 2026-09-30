@@ -6,6 +6,7 @@ import {
   Upload,
   Download,
   Ban,
+  Link2,
   CircleCheck,
   Search,
   BookOpen,
@@ -27,7 +28,9 @@ import {
   type MemoItem,
 } from "@/lib/memo";
 import ExportDialog from "@/components/ExportDialog";
+import WordEditModal from "@/components/WordEditModal";
 import { exportBackup, validateBackup, applyBackup, type BackupFile } from "@/lib/backup";
+import { findFamilyCandidate, type FamilyCandidate } from "@/lib/family";
 import {
   getWords,
   getBooks,
@@ -39,6 +42,8 @@ import {
   removeWord,
   toggleExcluded,
   updateMeanings,
+  setFamilyKey,
+  getFamilyMembers,
   formatMeanings,
   looksChinese,
   parseAiDefinition,
@@ -58,337 +63,307 @@ interface EditGroup {
   text: string;
 }
 
-/** 单词行（弹窗和搜索结果共用）；selecting 时显示勾选框 */
+/** 单词行（弹窗和搜索结果共用）：
+ * 常驻 ☐ 勾选 · 序号 · 单击单词开编辑弹窗 · 🔊 · 🔗词族 · 📝笔记 · 释义。
+ * 🔗/📝 固定槽位：有值彩色、无值灰显占位；点击弹浮层（移动端底部抽屉）。
+ */
 function WordRow({
   it,
   onChanged,
-  selecting,
   checked,
   onToggle,
+  onEdit,
 }: {
   it: WordItem;
   onChanged: () => void;
-  selecting?: boolean;
   checked?: boolean;
   onToggle?: (id: string) => void;
+  onEdit?: (w: WordItem) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [groups, setGroups] = useState<EditGroup[]>([]);
   const [noneTip, setNoneTip] = useState(false);
-  // 关联笔记展开态
-  const [notesOpen, setNotesOpen] = useState(false);
+  // 浮层：family = 词族列表；notes = 关联笔记
+  const [popover, setPopover] = useState<"family" | "notes" | null>(null);
   const [noteDraft, setNoteDraft] = useState<{ title: string; content: string } | null>(null);
-  const relatedMemos = notesOpen ? getMemosForWord(it.id) : [];
   const memoCount = getMemosForWord(it.id).length;
+  const familyMembers = it.familyKey ? getFamilyMembers(it.familyKey) : [];
+  const relatedMemos = popover === "notes" ? getMemosForWord(it.id) : [];
+  const rowRef = useRef<HTMLLIElement>(null);
+  // 单击编辑的 300ms 节流（防双击/快速点击弹两次）
+  const lastEditTap = useRef(0);
+  // 长按进编辑（移动端），需 preventDefault 阻止 iOS 系统菜单
+  const longPressTimer = useRef<number | null>(null);
 
-  const startEdit = () => {
-    setGroups(
-      it.meanings.length > 0
-        ? it.meanings.map((m) => ({ pos: m.pos, text: m.definitions.join("；") }))
-        : [{ pos: "", text: "" }],
-    );
-    setEditing(true);
-  };
-
-  const saveEdit = () => {
-    const meanings = groups
-      .map((g) => ({
-        pos: g.pos.trim(),
-        definitions: g.text
-          .split(/[;；/]/)
-          .map((d) => d.trim())
-          .filter(Boolean),
-      }))
-      .filter((g) => g.pos || g.definitions.length > 0);
-    updateMeanings(it.id, meanings);
-    setEditing(false);
-    onChanged();
+  const openEdit = () => {
+    const now = Date.now();
+    if (now - lastEditTap.current < 300) return;
+    lastEditTap.current = now;
+    onEdit?.(it);
   };
 
   const handleSpeak = () => {
     const r = speak(it.word);
     if (r.reason === "no-english-voice" && !sessionStorage.getItem("vocab_tts_none_tip")) {
-      // 一次性提示：系统没有任何英文语音
       sessionStorage.setItem("vocab_tts_none_tip", "1");
       setNoneTip(true);
       window.setTimeout(() => setNoneTip(false), 3500);
     }
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`确定删除单词 ${it.word}？可从数据层恢复，暂无撤销入口。`)) {
-      removeWord(it.id);
-      onChanged();
+  // 点击行外关闭浮层
+  useEffect(() => {
+    if (!popover) return;
+    const close = (e: MouseEvent) => {
+      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setPopover(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [popover]);
+
+  // 长按：preventDefault 阻止 iOS Safari 选择/复制/词典系统菜单
+  const touchStart = (e: React.TouchEvent) => {
+    longPressTimer.current = window.setTimeout(() => {
+      e.preventDefault();
+      openEdit();
+    }, 500);
+  };
+  const touchEnd = () => {
+    if (longPressTimer.current) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
   };
 
   return (
     <li
-      className={`glass-card rounded-lg px-3 py-1.5 transition-all duration-300 ${
+      ref={rowRef}
+      className={`glass-card relative rounded-lg px-3 py-1.5 transition-all duration-300 ${popover ? "z-40" : ""} ${
         it.excluded ? "opacity-45" : ""
-      } ${checked ? "!border-blue-300/40" : ""} ${selecting ? "cursor-pointer" : ""}`}
-      onClick={selecting ? () => onToggle?.(it.id) : undefined}
+      } ${checked ? "!border-blue-300/40" : ""}`}
     >
-      {/* 主行：单词左对齐，释义右对齐，同一行 */}
-      <div className="flex items-center gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          {selecting && (
-            <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
-                checked ? "border-blue-300 bg-blue-400/30 text-blue-100" : "border-white/25 text-transparent"
-              }`}
-            >
-              <CircleCheck className="h-3.5 w-3.5" />
+      <div className="flex items-center gap-2.5">
+        {/* 常驻勾选框：只勾选，不触发其他 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle?.(it.id);
+          }}
+          aria-label={`勾选 ${it.word}`}
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
+            checked ? "border-blue-300 bg-blue-400/30 text-blue-100" : "border-white/25 text-transparent"
+          }`}
+        >
+          <CircleCheck className="h-3.5 w-3.5" />
+        </button>
+
+        {/* 序号 + 单词（单击开编辑弹窗；移动端长按也可以）+ 徽章 */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <span className="font-mono text-sm tracking-wide text-white/40">#{it.orderInBook}</span>
+          <button
+            onClick={openEdit}
+            onTouchStart={touchStart}
+            onTouchEnd={touchEnd}
+            onTouchMove={touchEnd}
+            onContextMenu={(e) => e.preventDefault()}
+            aria-label={`编辑 ${it.word}`}
+            className="select-none font-mono text-base tracking-wide text-white transition-colors hover:text-blue-200"
+          >
+            {it.word}
+          </button>
+          {it.type === "phrase" && (
+            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
+              词组
             </span>
           )}
-          {/* 左：序号 + 单词 + 徽章 */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="font-mono text-sm tracking-wide text-white/40">#{it.orderInBook}</span>
-            <span className="font-mono text-base tracking-wide text-white">{it.word}</span>
-            {it.type === "phrase" && (
-              <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
-                词组
-              </span>
-            )}
-            {it.mastered && (
-              <span className="rounded-full border border-emerald-300/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-200/70">
-                已掌握
-              </span>
-            )}
-            {it.excluded && (
-              <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
-                不再测
-              </span>
-            )}
-            {it.testedRounds > 0 && (
-              <span className="font-mono text-[10px] tracking-wide text-white/25">
-                已测 {it.testedRounds} 次
-              </span>
-            )}
-          </div>
-          {/* 右：释义（右对齐，与单词同一行） */}
-          {!editing && (
-            <div className="hidden max-w-[50%] shrink-0 text-right text-sm tracking-wide text-white/55 sm:block">
-              {formatMeanings(it.meanings).length > 0 ? (
-                <p className="truncate" title={formatMeanings(it.meanings).join(" / ")}>
-                  {formatMeanings(it.meanings).join(" · ")}
-                </p>
-              ) : (
-                <p className="text-white/25">（暂无释义）</p>
-              )}
-            </div>
+          {it.mastered && (
+            <span className="rounded-full border border-emerald-300/25 px-2 py-0.5 text-[10px] tracking-wide text-emerald-200/70">
+              已掌握
+            </span>
+          )}
+          {it.excluded && (
+            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] tracking-wide text-white/40">
+              不再测
+            </span>
+          )}
+          {it.testedRounds > 0 && (
+            <span className="font-mono text-[10px] tracking-wide text-white/25">
+              已测 {it.testedRounds} 次
+            </span>
           )}
         </div>
 
-        {/* 行操作：编辑 / 发音 / 不再测 / 记笔记(占位) / 删除（紧凑尺寸） */}
-        {!selecting && !editing && (
-          <div className="flex shrink-0 items-center -mr-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                startEdit();
-              }}
-              aria-label={`编辑 ${it.word} 的释义`}
-              title="编辑释义"
-              className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSpeak();
-              }}
-              aria-label={`朗读 ${it.word}`}
-              title="发音"
-              className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-white/25 transition-colors hover:text-blue-200"
-            >
-              <Volume2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleExcluded(it.id);
-                onChanged();
-              }}
-              aria-label={it.excluded ? "恢复测试" : "不再测"}
-              title={it.excluded ? "恢复测试" : "不再测"}
-              className={`flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full transition-colors duration-300 ${
-                it.excluded ? "text-blue-300" : "text-white/25 hover:text-blue-200"
-              }`}
-            >
-              {it.excluded ? <CircleCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-            </button>
-            {/* 记笔记：有笔记高亮，点击展开/收起关联笔记 */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setNotesOpen((v) => !v);
-              }}
-              aria-label={`查看 ${it.word} 的关联笔记`}
-              title={memoCount > 0 ? `关联笔记（${memoCount} 条）` : "记笔记"}
-              className={`flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full transition-colors ${
-                memoCount > 0 ? "text-amber-200/80 hover:text-amber-200" : "text-white/25 hover:text-blue-200"
-              }`}
-            >
-              <StickyNote className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete();
-              }}
-              aria-label={`删除 ${it.word}`}
-              title="删除"
-              className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-white/25 transition-colors duration-300 hover:text-red-300"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
+        {/* 右：释义（右对齐） */}
+        <div className="hidden max-w-[40%] shrink-0 text-right text-sm tracking-wide text-white/55 sm:block">
+          {formatMeanings(it.meanings).length > 0 ? (
+            <p className="truncate" title={formatMeanings(it.meanings).join(" / ")}>
+              {formatMeanings(it.meanings).join(" · ")}
+            </p>
+          ) : (
+            <p className="text-white/25">（暂无释义）</p>
+          )}
+        </div>
+
+        {/* 🔊 操作按钮（蓝色，永远可点）+ 🔗/📝 状态槽位（有值彩色无值灰显占位） */}
+        <div className="flex shrink-0 items-center -mr-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSpeak();
+            }}
+            aria-label={`朗读 ${it.word}`}
+            title="发音"
+            className="flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full text-blue-300/80 transition-colors hover:text-blue-200"
+          >
+            <Volume2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPopover((v) => (v === "family" ? null : "family"));
+            }}
+            disabled={!it.familyKey}
+            aria-label={`${it.word} 的词族`}
+            title={it.familyKey ? `所属词族：${it.familyKey}（共 ${familyMembers.length} 个）` : "不属于任何词族"}
+            className={`flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full transition-colors ${
+              it.familyKey
+                ? "text-blue-300/80 hover:text-blue-200"
+                : "cursor-default text-white/12"
+            }`}
+          >
+            <Link2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setPopover((v) => (v === "notes" ? null : "notes"));
+            }}
+            aria-label={`${it.word} 的关联笔记`}
+            title={memoCount > 0 ? `关联笔记：${memoCount} 条` : "记笔记"}
+            className={`flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full transition-colors ${
+              memoCount > 0 ? "text-amber-200/80 hover:text-amber-200" : "text-white/12 hover:text-blue-200"
+            }`}
+          >
+            <StickyNote className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
-      {/* 窄屏补一行释义（sm 以下右侧放不下时） */}
-      {!editing && (
-        <p className="mt-0.5 truncate text-xs tracking-wide text-white/45 sm:hidden">
-          {formatMeanings(it.meanings).join(" · ") || "（暂无释义）"}
-        </p>
-      )}
+      {/* 窄屏补一行释义 */}
+      <p className="mt-0.5 truncate pl-7 text-xs tracking-wide text-white/45 sm:hidden">
+        {formatMeanings(it.meanings).join(" · ") || "（暂无释义）"}
+      </p>
 
-      {/* 编辑态：占整宽，位于主行下方 */}
-      {editing && (
-        <div className="mt-2 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-          {groups.map((g, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <select
-                value={g.pos}
-                onChange={(e) =>
-                  setGroups(groups.map((x, j) => (j === i ? { ...x, pos: e.target.value } : x)))
-                }
-                className="glass-input min-h-[36px] w-24 rounded-lg px-2 text-xs"
-              >
-                {["", ...POS_OPTIONS.filter((p) => p !== "其他")].map((p) => (
-                  <option key={p} value={p} className="bg-[#0a0d12]">
-                    {p === "" ? "无词性" : p}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={g.text}
-                onChange={(e) =>
-                  setGroups(groups.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))
-                }
-                placeholder="多个义项用 ；或 / 分隔"
-                className="glass-input min-h-[36px] flex-1 rounded-lg px-3 text-sm"
-              />
-              <button
-                onClick={() => setGroups(groups.filter((_, j) => j !== i))}
-                aria-label="删除该行义项"
-                className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full text-white/25 hover:text-red-300"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setGroups([...groups, { pos: "", text: "" }])}
-              className="ghost-btn min-h-[32px] px-3 text-xs"
-            >
-              <Plus className="h-3 w-3" /> 加词性
-            </button>
-            <span className="flex-1" />
-            <button
-              onClick={() => setEditing(false)}
-              className="min-h-[32px] rounded-full px-3 text-xs text-white/40 hover:text-white"
-            >
-              取消
-            </button>
-            <button onClick={saveEdit} className="glow-btn min-h-[32px] rounded-full px-4 text-xs">
-              保存
-            </button>
-          </div>
-        </div>
-      )}
       {noneTip && (
         <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
           当前系统无英文语音，请到系统设置安装英语语音包
         </p>
       )}
 
-      {/* 关联笔记：默认折叠；支持新建（自动带上当前单词 id） */}
-      {notesOpen && (
-        <div className="mt-2 rounded-lg border border-white/8 bg-white/[0.02] p-3" onClick={(e) => e.stopPropagation()}>
-          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-white/30">
-            关联笔记（{relatedMemos.length}）
-          </p>
-          {relatedMemos.length > 0 && (
-            <ul className="mb-2 flex flex-col gap-1.5">
-              {relatedMemos.map((m: MemoItem) => (
-                <li key={m.id} className="rounded-lg bg-white/[0.03] px-3 py-2">
-                  <p className="text-sm font-medium tracking-wide text-white/85">
-                    {m.title || "（无标题）"}
-                  </p>
-                  <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed tracking-wide text-white/55">
-                    {m.content}
-                  </p>
-                </li>
-              ))}
-            </ul>
+      {/* 🔗 词族浮层 / 📝 笔记浮层：桌面弹层，移动端底部抽屉 */}
+      {popover && (
+        <div
+          className="absolute left-0 right-0 top-full z-40 mt-1 rounded-xl border border-white/10 bg-[#12161d] p-3 shadow-xl max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:left-auto max-sm:right-auto max-sm:top-auto max-sm:mt-0 max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {popover === "family" && (
+            <>
+              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-white/30">
+                词族「{it.familyKey}」（{familyMembers.length}）
+              </p>
+              <ul className="flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+                {familyMembers.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      onClick={() => {
+                        setPopover(null);
+                        if (m.id !== it.id) onEdit?.(m);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-white/70 transition-colors hover:bg-white/5 hover:text-white"
+                    >
+                      <span className={`font-mono ${m.deleted ? "line-through opacity-50" : ""}`}>
+                        {m.word}
+                      </span>
+                      <span className="text-[10px] text-white/30">
+                        {m.type === "phrase" ? "词组" : "单词"} · #{m.orderInBook}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
-          {noteDraft ? (
-            <div className="flex flex-col gap-2">
-              <input
-                value={noteDraft.title}
-                onChange={(e) => setNoteDraft({ ...noteDraft, title: e.target.value })}
-                placeholder="笔记标题"
-                autoFocus
-                className="glass-input min-h-[36px] rounded-lg px-3 text-sm tracking-wide"
-              />
-              <textarea
-                value={noteDraft.content}
-                onChange={(e) => setNoteDraft({ ...noteDraft, content: e.target.value })}
-                placeholder="内容…"
-                rows={3}
-                className="glass-input w-full resize-y rounded-lg p-3 text-sm tracking-wide"
-              />
-              <div className="flex justify-end gap-2">
+          {popover === "notes" && (
+            <>
+              <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-white/30">
+                关联笔记（{relatedMemos.length}）
+              </p>
+              {relatedMemos.length > 0 && (
+                <ul className="mb-2 flex max-h-48 flex-col gap-1.5 overflow-y-auto">
+                  {relatedMemos.map((m: MemoItem) => (
+                    <li key={m.id} className="rounded-lg bg-white/[0.03] px-3 py-2">
+                      <p className="text-sm font-medium tracking-wide text-white/85">
+                        {m.title || "（无标题）"}
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed tracking-wide text-white/55">
+                        {m.content}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {noteDraft ? (
+                <div className="flex flex-col gap-2">
+                  <input
+                    value={noteDraft.title}
+                    onChange={(e) => setNoteDraft({ ...noteDraft, title: e.target.value })}
+                    placeholder="笔记标题"
+                    className="glass-input min-h-[36px] rounded-lg px-3 text-sm tracking-wide"
+                  />
+                  <textarea
+                    value={noteDraft.content}
+                    onChange={(e) => setNoteDraft({ ...noteDraft, content: e.target.value })}
+                    placeholder="内容…"
+                    rows={3}
+                    className="glass-input w-full resize-y rounded-lg p-3 text-sm tracking-wide"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setNoteDraft(null)}
+                      className="min-h-[32px] rounded-full px-3 text-xs text-white/40 hover:text-white"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (!noteDraft.title.trim() && !noteDraft.content.trim()) return;
+                        addMemo(noteDraft.title.trim(), noteDraft.content, {
+                          relatedWordIds: [it.id],
+                          bookId: it.bookId,
+                        });
+                        setNoteDraft(null);
+                        onChanged();
+                      }}
+                      className="glow-btn min-h-[32px] rounded-full px-4 text-xs"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <button
-                  onClick={() => setNoteDraft(null)}
-                  className="min-h-[32px] rounded-full px-3 text-xs text-white/40 hover:text-white"
+                  onClick={() => setNoteDraft({ title: "", content: "" })}
+                  className="ghost-btn min-h-[32px] px-3 text-xs"
                 >
-                  取消
+                  <Plus className="h-3 w-3" /> 新建
                 </button>
-                <button
-                  onClick={() => {
-                    if (!noteDraft.title.trim() && !noteDraft.content.trim()) return;
-                    addMemo(noteDraft.title.trim(), noteDraft.content, {
-                      relatedWordIds: [it.id],
-                      bookId: it.bookId,
-                    });
-                    setNoteDraft(null);
-                    onChanged();
-                  }}
-                  disabled={!noteDraft.title.trim() && !noteDraft.content.trim()}
-                  className="glow-btn min-h-[32px] rounded-full px-4 text-xs disabled:opacity-35"
-                >
-                  保存
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setNoteDraft({ title: "", content: "" })}
-              className="ghost-btn min-h-[32px] px-3 text-xs"
-            >
-              <Plus className="h-3 w-3" /> 新建关联笔记
-            </button>
+              )}
+            </>
           )}
         </div>
       )}
     </li>
   );
 }
+
 
 export default function WordsPage() {
   const [words, setWords] = useState<WordItem[]>([]);
@@ -424,9 +399,20 @@ export default function WordsPage() {
   const [renameText, setRenameText] = useState("");
   // 新建章节
   const [newChapterName, setNewChapterName] = useState("");
-  // 批量操作
-  const [selecting, setSelecting] = useState(false);
+  // 批量选择（常驻 ☐，无多选模式）
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
+  // 单词编辑弹窗（单击单词文本触发）
+  const [editWordId, setEditWordId] = useState<string | null>(null);
+  // 词族归入确认（手动添加命中时）
+  const [familyConfirm, setFamilyConfirm] = useState<{
+    text: string;
+    candidate: FamilyCandidate;
+    proceed: (familyKey?: string) => void;
+  } | null>(null);
+  // 批量导入后的词族汇总（只列前 20 条）
+  const [familyBatch, setFamilyBatch] = useState<{
+    hits: { id: string; text: string; key: string }[];
+  } | null>(null);
   // 分页（词书弹窗内列表）
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<10 | 15 | 20>(15);
@@ -468,7 +454,7 @@ export default function WordsPage() {
     setRenameText(name);
     setPage(1);
     setJumpText("");
-    exitSelecting();
+    clearChecked();
   };
 
   const refresh = () => {
@@ -569,14 +555,44 @@ export default function WordsPage() {
 
   const handleAdd = () => {
     if (!word.trim()) return;
+    // 词族自动识别：命中已有词族且本会话未拒过 → 先弹确认
+    const cand = findFamilyCandidate(word, words);
+    if (
+      cand &&
+      !sessionStorage.getItem(`vocab_family_declined_${cand.key}`)
+    ) {
+      const w = word, p = pos, d = defs, t = addType, bk = targetBook;
+      setFamilyConfirm({
+        text: w,
+        candidate: cand,
+        proceed: (fk) => {
+          setFamilyConfirm(null);
+          // 归入时把命中但尚无 familyKey 的已有成员（如核心词本身）一并入族
+          if (fk) for (const m of cand.members) if (!m.familyKey) setFamilyKey(m.id, fk);
+          doAdd(w, p, d, t, bk, fk);
+        },
+      });
+      return;
+    }
+    doAdd(word, pos, defs, addType, targetBook);
+  };
+
+  const doAdd = (
+    wordText: string,
+    posVal: string,
+    defsText: string,
+    type: "word" | "phrase",
+    book: string,
+    familyKey?: string,
+  ) => {
     // 词组固定进「我的词组」，单词进所选词书
-    const toBook = addType === "phrase" ? PHRASE_BOOK_ID : targetBook;
+    const toBook = type === "phrase" ? PHRASE_BOOK_ID : book;
     // 重复检查（同词 + 同类型才算重复，单词和词组互不干扰）
     const dup = words.find(
-      (w) => w.word.toLowerCase() === word.trim().toLowerCase() && w.type === addType,
+      (w) => w.word.toLowerCase() === wordText.trim().toLowerCase() && w.type === type,
     );
-    const definitions = defs.split(/[;；]/).map((d) => d.trim()).filter(Boolean);
-    if (addWord(word, addType === "phrase" ? "" : pos, definitions, toBook, addType)) {
+    const definitions = defsText.split(/[;；]/).map((d) => d.trim()).filter(Boolean);
+    if (addWord(wordText, type === "phrase" ? "" : posVal, definitions, toBook, type, familyKey)) {
       setWord("");
       setDefs("");
       showTip(
@@ -584,7 +600,7 @@ export default function WordsPage() {
           ? dup.bookId !== toBook
             ? `「${dup.word}」已存在于「${bookName(dup.bookId)}」，义项已合并到该书，未加入「${bookName(toBook)}」`
             : `「${dup.word}」已存在，义项已合并进去`
-          : addType === "phrase"
+          : type === "phrase"
             ? `词组已加入「我的词组」`
             : "添加成功",
       );
@@ -594,6 +610,8 @@ export default function WordsPage() {
 
   const handleImport = () => {
     if (!batchText.trim()) return;
+    // 导入前收集可归族条目（导入后 words 变了，先算好）
+    const lines = batchText.split("\n").map((l) => l.trim()).filter(Boolean);
     const { added, skipped } = importWords(batchText, targetBook);
     setBatchText("");
     showTip(
@@ -602,6 +620,20 @@ export default function WordsPage() {
         : `成功导入/合并 ${added} 条`,
     );
     refresh();
+    // 汇总词族命中：导入后新状态里找（同词文本匹配 id），不逐条弹
+    const fresh = getWords();
+    const hits: { id: string; text: string; key: string }[] = [];
+    for (const line of lines) {
+      const text = line.split(/[\t,，]/)[0]?.trim() ?? "";
+      if (!text) continue;
+      const cand = findFamilyCandidate(text, fresh);
+      if (!cand || sessionStorage.getItem(`vocab_family_declined_${cand.key}`)) continue;
+      const w = fresh.find(
+        (x) => x.word.toLowerCase() === text.toLowerCase() && !x.familyKey,
+      );
+      if (w) hits.push({ id: w.id, text, key: cand.key });
+    }
+    if (hits.length > 0) setFamilyBatch({ hits });
   };
 
   // 检索结果（搜单词或释义）
@@ -700,10 +732,7 @@ export default function WordsPage() {
       return next;
     });
   };
-  const exitSelecting = () => {
-    setSelecting(false);
-    setCheckedIds(new Set());
-  };
+  const clearChecked = () => setCheckedIds(new Set());
   const allChecked =
     openBookWords.length > 0 && openBookWords.every((w) => checkedIds.has(w.id));
 
@@ -712,7 +741,7 @@ export default function WordsPage() {
     if (!window.confirm(`确定删除选中的 ${checkedIds.size} 个单词？此操作不可恢复。`)) return;
     for (const id of checkedIds) removeWord(id);
     showTip(`已删除 ${checkedIds.size} 个单词`);
-    exitSelecting();
+    clearChecked();
     refresh();
   };
   const batchExclude = (exclude: boolean) => {
@@ -722,7 +751,7 @@ export default function WordsPage() {
       if (w && w.excluded !== exclude) toggleExcluded(id);
     }
     showTip(exclude ? `已将 ${checkedIds.size} 个单词设为不再测` : `已恢复 ${checkedIds.size} 个单词`);
-    exitSelecting();
+    clearChecked();
     refresh();
   };
 
@@ -788,7 +817,13 @@ export default function WordsPage() {
                       <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-blue-200/50">
                         {bookName(it.bookId)}
                       </p>
-                      <WordRow it={it} onChanged={refresh} />
+                      <WordRow
+                        it={it}
+                        onChanged={refresh}
+                        checked={checkedIds.has(it.id)}
+                        onToggle={toggleCheck}
+                        onEdit={(w) => setEditWordId(w.id)}
+                      />
                     </div>
                   ))}
                 </ul>
@@ -1079,7 +1114,7 @@ export default function WordsPage() {
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-6"
           onClick={() => {
             setOpenBookId(null);
-            exitSelecting();
+            clearChecked();
           }}
         >
           <div
@@ -1136,7 +1171,7 @@ export default function WordsPage() {
                     ` · 章节共 ${openBookChapters.reduce((s, c) => s + bookWordCount(c.id), 0)} 个`}
                 </p>
               </div>
-              {openBookTotal > 0 && !selecting && (
+              {openBookTotal > 0 && (
                 <button
                   onClick={() => {
                     const ids = openBookWords.map((w) => w.id);
@@ -1149,7 +1184,7 @@ export default function WordsPage() {
                   <Volume2 className="mr-1 inline h-3.5 w-3.5" /> 听写本页
                 </button>
               )}
-              {!selecting && (
+              {true && (
                 <button
                   onClick={() => {
                     // 范围跟当前节点走：词书含章节，章节仅自身
@@ -1178,20 +1213,10 @@ export default function WordsPage() {
                   导出
                 </button>
               )}
-              {openBookTotal > 0 && (
-                <button
-                  onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
-                  className={`ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide ${
-                    selecting ? "!border-blue-300/40 !text-blue-200" : ""
-                  }`}
-                >
-                  {selecting ? "取消多选" : "多选"}
-                </button>
-              )}
               <button
                 onClick={() => {
                   setOpenBookId(null);
-                  exitSelecting();
+                  clearChecked();
                 }}
                 aria-label="关闭"
                 className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-white/40 hover:text-white"
@@ -1200,8 +1225,8 @@ export default function WordsPage() {
               </button>
             </div>
 
-            {/* 批量操作工具条 */}
-            {selecting && openBookTotal > 0 && (
+            {/* 批量操作工具栏（常驻；勾选框每行常驻） */}
+            {openBookTotal > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-blue-300/20 bg-blue-400/5 px-4 py-2.5">
                 <button
                   onClick={() =>
@@ -1213,6 +1238,14 @@ export default function WordsPage() {
                 >
                   {allChecked ? "取消全选" : "全选本页"}
                 </button>
+                {checkedIds.size > 0 && (
+                  <button
+                    onClick={() => setCheckedIds(new Set())}
+                    className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200"
+                  >
+                    清空选择
+                  </button>
+                )}
                 <span className="font-mono text-xs tracking-wide text-white/40">
                   已选 {checkedIds.size} 个
                 </span>
@@ -1285,9 +1318,9 @@ export default function WordsPage() {
                       key={it.id}
                       it={it}
                       onChanged={refresh}
-                      selecting={selecting}
                       checked={checkedIds.has(it.id)}
                       onToggle={toggleCheck}
+                      onEdit={(w) => setEditWordId(w.id)}
                     />
                   ))}
                 </ul>
@@ -1413,6 +1446,120 @@ export default function WordsPage() {
           </div>
         </div>
       )}
+      {/* 词族归入确认（手动添加命中） */}
+      {familyConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-card w-full max-w-sm rounded-2xl p-6">
+            <h3 className="font-semibold tracking-wide text-white">归入已有词族？</h3>
+            <p className="mt-2 text-sm leading-relaxed tracking-wide text-white/45">
+              检测到已有相关词族「{familyConfirm.candidate.key}」（含{" "}
+              {familyConfirm.candidate.members
+                .slice(0, 3)
+                .map((m) => m.word)
+                .join("、")}
+              {familyConfirm.candidate.members.length > 3 &&
+                ` 等 ${familyConfirm.candidate.members.length} 条`}
+              ），「{familyConfirm.text}」是否归入？
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => familyConfirm.proceed(familyConfirm.candidate.key)}
+                className="glow-btn min-h-[44px] flex-1 rounded-full text-sm tracking-wide"
+              >
+                归入
+              </button>
+              <button
+                onClick={() => {
+                  // 本会话记住拒绝，同族不再反复弹
+                  sessionStorage.setItem(
+                    `vocab_family_declined_${familyConfirm.candidate.key}`,
+                    "1",
+                  );
+                  familyConfirm.proceed(undefined);
+                }}
+                className="ghost-btn min-h-[44px] flex-1 text-sm tracking-wide"
+              >
+                不归入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 批量导入词族汇总（只列前 20 条，逐条归入/跳过） */}
+      {familyBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="glass-card flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-6">
+            <h3 className="font-semibold tracking-wide text-white">
+              有 {familyBatch.hits.length} 条可归入已有词族
+            </h3>
+            <p className="mt-1 text-xs tracking-wide text-white/40">
+              逐条处理；全部处理完或点「完成」关闭。
+            </p>
+            <ul className="mt-4 flex-1 space-y-1.5 overflow-y-auto">
+              {familyBatch.hits.slice(0, 20).map((h) => (
+                <li
+                  key={h.id}
+                  className="flex items-center gap-2 rounded-xl border border-white/8 px-3 py-2"
+                >
+                  <span className="min-w-0 flex-1 truncate font-mono text-sm text-white">
+                    {h.text}
+                  </span>
+                  <span className="shrink-0 font-mono text-[10px] text-blue-200/60">
+                    → {h.key}
+                  </span>
+                  <button
+                    onClick={() => {
+                      setFamilyKey(h.id, h.key);
+                      // 命中但尚无 familyKey 的已有成员（如核心词本身）一并入族
+                      const cand = findFamilyCandidate(h.text, getWords(), h.id);
+                      if (cand) for (const m of cand.members) if (!m.familyKey) setFamilyKey(m.id, h.key);
+                      setFamilyBatch((b) =>
+                        b ? { hits: b.hits.filter((x) => x.id !== h.id) } : b,
+                      );
+                      refresh();
+                    }}
+                    className="min-h-[32px] shrink-0 rounded-full border border-blue-300/25 px-3 text-xs text-blue-200/80 hover:border-blue-300/50"
+                  >
+                    归入
+                  </button>
+                  <button
+                    onClick={() =>
+                      setFamilyBatch((b) =>
+                        b ? { hits: b.hits.filter((x) => x.id !== h.id) } : b,
+                      )
+                    }
+                    className="min-h-[32px] shrink-0 rounded-full px-2 text-xs text-white/35 hover:text-white/60"
+                  >
+                    跳过
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {familyBatch.hits.length > 20 && (
+              <p className="mt-2 text-center font-mono text-[11px] text-white/30">
+                仅显示前 20 条，处理完自动续上
+              </p>
+            )}
+            <button
+              onClick={() => setFamilyBatch(null)}
+              className="glow-btn mt-4 min-h-[40px] rounded-full text-sm tracking-wide"
+            >
+              完成
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 单词编辑弹窗（单击单词触发；内含同族词条折叠区 + 关联笔记） */}
+      {editWordId && (
+        <WordEditModal
+          wordId={editWordId}
+          onClose={() => setEditWordId(null)}
+          onChanged={refresh}
+        />
+      )}
+
       {/* 备份导入方式选择 */}
       {pendingBackup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

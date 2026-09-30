@@ -46,6 +46,7 @@ interface SavedOptions {
   excludeTested: boolean;
   excludeMastered: boolean;
   preferWrong: boolean;
+  familyMode: boolean;
   ordered: boolean;
   typeFilter: EntryType | "all";
   bookId: string;
@@ -80,12 +81,13 @@ export default function TestPage() {
   const [excludeTested, setExcludeTested] = useState(saved?.excludeTested ?? true);
   const [excludeMastered, setExcludeMastered] = useState(saved?.excludeMastered ?? false);
   const [preferWrong, setPreferWrong] = useState(saved?.preferWrong ?? false);
+  const [familyMode, setFamilyMode] = useState(saved?.familyMode ?? false);
 
   // 条件选项持久化（词书/类型/顺序/排除项）
   useEffect(() => {
-    const o: SavedOptions = { excludeTested, excludeMastered, preferWrong, ordered, typeFilter, bookId, count };
+    const o: SavedOptions = { excludeTested, excludeMastered, preferWrong, familyMode, ordered, typeFilter, bookId, count };
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(o));
-  }, [excludeTested, excludeMastered, preferWrong, ordered, typeFilter, bookId, count]);
+  }, [excludeTested, excludeMastered, preferWrong, familyMode, ordered, typeFilter, bookId, count]);
   // 预览：跳过预览的选择持久化
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "1",
@@ -96,9 +98,11 @@ export default function TestPage() {
   // 发音设置弹层
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [previewIds, setPreviewIds] = useState<string[] | null>(null);
-  const [previewMeta, setPreviewMeta] = useState<{ matched: number; rangeIgnored: boolean } | null>(
-    null,
-  );
+  const [previewMeta, setPreviewMeta] = useState<{
+    matched: number;
+    rangeIgnored: boolean;
+    expanded?: number;
+  } | null>(null);
 
   // 从单词页手动勾选 / 错题本带过来的快照：?ids=a,b,c → 直接开考；mode=dictation → 听写；source=wrong → 错题队列
   const [searchParams] = useSearchParams();
@@ -171,6 +175,7 @@ export default function TestPage() {
     excludeTested,
     excludeMastered,
     preferWrong,
+    familyMode: familyMode ? "expand" : "off",
     count,
     order: ordered ? "sequential" : "random",
   });
@@ -218,7 +223,7 @@ export default function TestPage() {
     const r = doSelect();
     // matchedCount = 0：显示空态预览，不允许开始
     setPreviewIds(r.entryIds);
-    setPreviewMeta({ matched: r.matchedCount, rangeIgnored: r.rangeIgnored });
+    setPreviewMeta({ matched: r.matchedCount, rangeIgnored: r.rangeIgnored, expanded: r.expandedCount });
     setPreviewOpen(r.matchedCount > 0 && r.entryIds.length <= 30 ? false : false);
     if (r.entryIds.length === 0) return;
     if (skipPreview) {
@@ -633,6 +638,7 @@ export default function TestPage() {
               { v: excludeTested, set: setExcludeTested, label: "排除已测" },
               { v: excludeMastered, set: setExcludeMastered, label: "排除已掌握" },
               { v: preferWrong, set: setPreferWrong, label: "优先错词" },
+              { v: familyMode, set: setFamilyMode, label: "按词族整族抽" },
             ] as const
           ).map((o) => (
             <button
@@ -705,6 +711,10 @@ export default function TestPage() {
                     {previewMeta.rangeIgnored
                       ? `命中 ${previewMeta.matched} 个（含全部章节），将抽 ${Math.min(count, previewMeta.matched)} 个`
                       : `范围命中 ${previewMeta.matched} 个，将抽 ${Math.min(count, previewMeta.matched)} 个`}
+                    {familyMode &&
+                      previewMeta.expanded != null &&
+                      previewMeta.expanded > 0 &&
+                      `，整族扩展后 ${previewMeta.expanded} 个（含 ${previewWords.filter((w) => w.type === "phrase").length} 个词组）`}
                   </span>
                   {previewOpen ? (
                     <ChevronUp className="h-4 w-4 text-blue-200/60" />

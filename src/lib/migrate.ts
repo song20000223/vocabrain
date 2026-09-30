@@ -9,13 +9,15 @@
  * 只迁移本地存储键值（字符串 JSON），不理解业务结构——各版本迁移函数自己解析。
  */
 
-export const CURRENT_DATA_VERSION = 1;
+export const CURRENT_DATA_VERSION = 2;
 
 export const DATA_VERSION_KEY = "vocabrain_data_version";
 
-/** 迁移函数表：key = 目标版本号。当前为空，纯框架。 */
+/** 迁移函数表：key = 目标版本号 */
 const migrations: Record<number, (data: Record<string, string>) => Record<string, string>> = {
-  // 2: migrateV1toV2,  // S7 词族改造时填充
+  // v1 → v2：S7 词族——WordItem 增加 familyKey（缺省 undefined 不落盘，无需逐条改写；
+  // 这次迁移主要让版本号正式走一遍升级链路，框架自验证）
+  2: (data) => data,
 };
 
 /** 备份键前缀（迁移前自动备份用，导出时排除） */
@@ -55,9 +57,10 @@ export function ensureDataVersion(): void {
 
   if (raw === null) {
     if (hasData) {
-      // 老数据无版本号：视为 v1 之前的形态，先备份再标记为 1
+      // 老数据无版本号：视为 v1 之前的形态，备份到 v0_to_v1，再标记为当前版本
+      // （键名带起止版本，后续迁移不会再覆盖它）
       localStorage.setItem(
-        `${INTERNAL_BACKUP_PREFIX}v1`,
+        `${INTERNAL_BACKUP_PREFIX}v0_to_v1`,
         JSON.stringify({ backedUpAt: Date.now(), data: snapshotData() }),
       );
     }
@@ -68,9 +71,9 @@ export function ensureDataVersion(): void {
   let version = parseInt(raw, 10);
   if (Number.isNaN(version) || version >= CURRENT_DATA_VERSION) return;
 
-  // 逐级迁移，迁移前备份当前版本
+  // 逐级迁移，迁移前备份当前版本（键名 v{从}_to_v{到}，永不覆盖历史备份）
   localStorage.setItem(
-    `${INTERNAL_BACKUP_PREFIX}v${version}`,
+    `${INTERNAL_BACKUP_PREFIX}v${version}_to_v${CURRENT_DATA_VERSION}`,
     JSON.stringify({ backedUpAt: Date.now(), data: snapshotData() }),
   );
   while (version < CURRENT_DATA_VERSION) {

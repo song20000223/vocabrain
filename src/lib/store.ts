@@ -32,6 +32,8 @@ export interface WordItem {
   excluded: boolean; // 标记“不再测”
   /** 连续答错次数：答对 -1（最低 0），答错 +1。旧数据缺省补 0。供「优先抽错词」使用 */
   wrongStreak: number;
+  /** 词族 key：undefined = 不属任何词族；同 familyKey 聚合成族（跨词书、跨 type） */
+  familyKey?: string;
 }
 
 export interface BookItem {
@@ -257,6 +259,7 @@ interface LegacyWord {
   testedRounds?: number;
   lastTestedAt?: number | null;
   wrongStreak?: number;
+  familyKey?: string;
   excluded?: boolean;
 }
 
@@ -281,6 +284,7 @@ function migrateWord(raw: LegacyWord): WordItem {
     lastTestedAt: raw.lastTestedAt ?? null,
     excluded: raw.excluded ?? false,
     wrongStreak: raw.wrongStreak ?? 0,
+    familyKey: raw.familyKey ?? undefined,
   };
 }
 
@@ -397,6 +401,7 @@ export function addWord(
   definitions: string[] = [],
   bookId: string = DEFAULT_BOOK_ID,
   type: EntryType = "word",
+  familyKey?: string,
 ): WordItem | null {
   const w = word.trim();
   if (!w) return null;
@@ -431,6 +436,7 @@ export function addWord(
     lastTestedAt: null,
     excluded: false,
     wrongStreak: 0,
+    familyKey: familyKey || undefined,
   };
   saveWords([item, ...words]);
   return item;
@@ -613,6 +619,30 @@ export function toggleMastered(id: string): void {
 }
 
 /** 编辑释义（原地更新 meanings，保存即持久化；判分直接使用新释义） */
+/** 设置/移出词族：清空（undefined）= 移出词族；只改当前条，不批量 */
+export function setFamilyKey(id: string, key: string | undefined): void {
+  const words = readAllWords();
+  const w = words.find((it) => it.id === id);
+  if (!w) return;
+  const k = key?.trim();
+  w.familyKey = k ? k.toLowerCase() : undefined;
+  saveWords(words);
+}
+
+/** 同族全部词条（含软删，调用方决定如何展示；跨词书聚合是预期行为） */
+export function getFamilyMembers(familyKey: string): WordItem[] {
+  if (!familyKey) return [];
+  const k = familyKey.toLowerCase();
+  return readAllWords().filter((w) => w.familyKey?.toLowerCase() === k);
+}
+
+/** 全库去重 familyKey 列表（编辑弹窗候选用） */
+export function allFamilyKeys(): string[] {
+  const set = new Set<string>();
+  for (const w of getWords()) if (w.familyKey) set.add(w.familyKey);
+  return [...set].sort();
+}
+
 export function updateMeanings(id: string, meanings: MeaningGroup[]): void {
   const words = getWords();
   const w = words.find((it) => it.id === id);
@@ -637,6 +667,7 @@ export interface SelectionCriteria {
   excludeTested?: boolean; // testedRounds > 0（历史累计）
   excludeMastered?: boolean; // mastered 或 excluded
   preferWrong?: boolean; // 优先抽 wrongStreak > 0 的词（默认关）
+  familyMode?: "off" | "expand"; // expand：命中条有 familyKey 时同族全部并入（软删不进队列）
   count: number;
   order: "sequential" | "random";
 }
@@ -644,6 +675,7 @@ export interface SelectionCriteria {
 export interface SelectResult {
   entryIds: string[]; // 抽选结果快照：分页/背诵/听写都基于它，不重新计算
   matchedCount: number; // 条件命中总数（用于“范围命中 N 个，将抽 min(count,N) 个”）
+  expandedCount?: number; // familyMode=expand 时的扩展后总数（含并入的同族词条）
   rangeIgnored: boolean; // 选了词书层（含后代）时 range 参数被忽略，UI 据此提示
 }
 
@@ -706,6 +738,28 @@ export function selectWords(criteria: SelectionCriteria): SelectResult {
     picked = shuffle(pool).slice(0, count);
   } else {
     picked = pool.slice(0, count);
+  }
+  // 整族扩展：命中条有 familyKey 时把同族未软删成员全部并入（去重，picked 在前）
+  if (criteria.familyMode === "expand") {
+    const seen = new Set(picked.map((w) => w.id));
+    const extra: WordItem[] = [];
+    for (const w of picked) {
+      if (!w.familyKey) continue;
+      for (const m of getFamilyMembers(w.familyKey)) {
+        if (m.deleted || seen.has(m.id)) continue; // 软删不进队列，和普通抽选一致
+        seen.add(m.id);
+        extra.push(m);
+      }
+    }
+    if (extra.length > 0) {
+      picked = [...picked, ...extra];
+    }
+    return {
+      entryIds: picked.map((w) => w.id),
+      matchedCount,
+      expandedCount: picked.length,
+      rangeIgnored,
+    };
   }
   return { entryIds: picked.map((w) => w.id), matchedCount, rangeIgnored };
 }

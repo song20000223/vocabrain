@@ -36,14 +36,14 @@ describe("ensureDataVersion 迁移框架", () => {
   it("全新用户：只写入版本号，不产生备份", () => {
     ensureDataVersion();
     expect(localStorage.getItem(DATA_VERSION_KEY)).toBe(String(CURRENT_DATA_VERSION));
-    expect(localStorage.getItem("vocabrain_backup_v1")).toBeNull();
+    expect(localStorage.getItem("vocabrain_backup_v0_to_v1")).toBeNull();
   });
 
-  it("老数据无版本号：自动备份到 vocabrain_backup_v1 并写入版本号", () => {
+  it("老数据无版本号：自动备份到 vocabrain_backup_v0_to_v1 并写入版本号", () => {
     localStorage.setItem("vocab_words", '[{"id":"w1"}]');
     ensureDataVersion();
     expect(localStorage.getItem(DATA_VERSION_KEY)).toBe(String(CURRENT_DATA_VERSION));
-    const bak = JSON.parse(localStorage.getItem("vocabrain_backup_v1")!);
+    const bak = JSON.parse(localStorage.getItem("vocabrain_backup_v0_to_v1")!);
     expect(bak.data.vocab_words).toBe('[{"id":"w1"}]');
   });
 
@@ -51,7 +51,7 @@ describe("ensureDataVersion 迁移框架", () => {
     localStorage.setItem(DATA_VERSION_KEY, String(CURRENT_DATA_VERSION));
     localStorage.setItem("vocab_words", "[]");
     ensureDataVersion();
-    expect(localStorage.getItem("vocabrain_backup_v1")).toBeNull();
+    expect(localStorage.getItem("vocabrain_backup_v0_to_v1")).toBeNull();
     expect(localStorage.getItem("vocab_words")).toBe("[]");
   });
 });
@@ -76,7 +76,7 @@ describe("validateBackup 导入校验", () => {
   });
   it("含内部备份键拒绝", () => {
     const r = validateBackup(
-      JSON.stringify({ ...good, data: { vocabrain_backup_v1: "{}" } }),
+      JSON.stringify({ ...good, data: { "vocabrain_backup_v0_to_v1": "{}" } }),
     );
     expect(r.ok).toBe(false);
   });
