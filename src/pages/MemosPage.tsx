@@ -185,11 +185,12 @@ export default function MemosPage() {
                           {related.map(({ word, deleted }) => (
                             <button
                               key={word.id}
+                              disabled={deleted}
                               onClick={() => navigate(`/words?focus=${word.id}`)}
                               title={deleted ? "该单词已删除（恢复后自动复原关联）" : "跳到词库查看"}
                               className={`min-h-[30px] rounded-full border px-3 font-mono text-xs tracking-wide transition-colors ${
                                 deleted
-                                  ? "border-white/8 text-white/25 line-through"
+                                  ? "cursor-not-allowed border-white/8 text-white/25 line-through"
                                   : "border-blue-300/25 text-blue-200/80 hover:border-blue-300/50 hover:text-blue-200"
                               }`}
                             >

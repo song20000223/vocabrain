@@ -1090,7 +1090,7 @@ export default function WordsPage() {
                   <Volume2 className="mr-1 inline h-3.5 w-3.5" /> 听写本页
                 </button>
               )}
-              {openBookTotal > 0 && !selecting && (
+              {!selecting && (
                 <button
                   onClick={() => {
                     // 范围跟当前节点走：词书含章节，章节仅自身
@@ -1112,8 +1112,9 @@ export default function WordsPage() {
                       pool,
                     });
                   }}
+                  disabled={openBookTotal === 0 && openBookChapters.length === 0}
                   title="导出当前范围单词"
-                  className="ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+                  className="ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200 disabled:opacity-30"
                 >
                   导出
                 </button>

@@ -29,6 +29,10 @@ export default function ExportDialog({ scopeLabel, scopeName, pool, withTime, on
   const [format, setFormat] = useState<"csv" | "txt">("csv");
 
   const filtered = useMemo(() => filterForExport(pool, f), [pool, f]);
+  // 全不勾 = 不导出（防误操作）：背记组和类型组各需至少勾一项
+  const noTestedState = !f.tested && !f.untested;
+  const noType = !f.word && !f.phrase;
+  const invalid = noTestedState || noType;
 
   const toggle = (k: keyof ExportFilters) => setF((s) => ({ ...s, [k]: !s[k] }));
 
@@ -108,7 +112,11 @@ export default function ExportDialog({ scopeLabel, scopeName, pool, withTime, on
         </div>
 
         <p className="mt-3 font-mono text-xs tracking-wide text-white/40">
-          符合条件 {filtered.length} 个
+          {invalid ? (
+            <span className="text-amber-200/70">请至少勾一项：已背/未背、单词/词组各选一个</span>
+          ) : (
+            `符合条件 ${filtered.length} 个`
+          )}
         </p>
 
         <div className="mt-4 flex justify-end gap-2">
@@ -120,7 +128,7 @@ export default function ExportDialog({ scopeLabel, scopeName, pool, withTime, on
           </button>
           <button
             onClick={doExport}
-            disabled={filtered.length === 0}
+            disabled={filtered.length === 0 || invalid}
             className="glow-btn min-h-[40px] rounded-full px-6 text-sm tracking-wide disabled:opacity-35"
           >
             <Download className="h-4 w-4" /> 导出
