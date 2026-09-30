@@ -83,12 +83,13 @@ with sync_playwright() as p:
     page.locator("div.fixed.inset-0").locator("button", has_text="完成").click(); page.wait_for_timeout(400)
     w1 = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words')).find(w => w.word==='abandon')")
     ok("编辑持久化", w1["meanings"][0]["definitions"]==["放弃","抛弃","遗弃"])
-    # 笔记：行内 📝 浮层
-    page.get_by_label("abandon 的关联笔记").click(); page.wait_for_timeout(200)
-    page.locator("li.glass-card", has_text="abandon").locator("button", has_text="新建").click()
-    page.locator("input[placeholder='笔记标题']").press_sequentially("abandon 搭配")
-    page.locator("textarea[placeholder='内容…']").press_sequentially("abandon oneself to")
-    page.locator("button", has_text="保存").last.click(); page.wait_for_timeout(400)
+    # 笔记：行内 📝 浮层（portal 到 body）
+    page.get_by_label("abandon 的关联笔记").click(); page.wait_for_timeout(300)
+    pop = page.locator("body > div.fixed").filter(has_text="关联笔记").first
+    pop.locator("button", has_text="新建").click(); page.wait_for_timeout(200)
+    pop.locator("input[placeholder='笔记标题']").press_sequentially("abandon 搭配")
+    pop.locator("textarea[placeholder='内容…']").press_sequentially("abandon oneself to")
+    pop.locator("button", has_text="保存").click(); page.wait_for_timeout(400)
     page.keyboard.press("Escape"); page.locator("body").click(position={"x":10,"y":10}); page.wait_for_timeout(200)  # 关浮层
     memos = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_memos'))")
     ok("行笔记关联", len(memos)==1 and memos[0]["relatedWordIds"]==[w1["id"]])
@@ -294,6 +295,10 @@ with sync_playwright() as p:
     w = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words')).find(w=>w.word==='crack a code')")
     ok("S7-1b 归入后 familyKey=crack", w.get("familyKey") == "crack", str(w.get("familyKey")))
 
+    # bug批①：归入后核心词 crack 也带上 familyKey（新旧成员统一入族）
+    wcore = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words')).find(w=>w.word==='crack')")
+    ok("bug① 归入后核心词 crack 也有 familyKey", wcore.get("familyKey") == "crack", str(wcore.get("familyKey")))
+
     # 验收3：编辑窗手填 familyKey 归族（crack down → crack）；词组在「我的词组」
     page.locator("button:has-text(\"点开 →\")").filter(has_text="我的词组").first.click(); page.wait_for_timeout(400)
     page.get_by_label("编辑 crack down").click(); page.wait_for_timeout(400)
@@ -362,16 +367,37 @@ with sync_playwright() as p:
     note_btns = page.locator("button[aria-label$='的关联笔记']").count()
     ok("S7-9 每行 🔗📝 槽位常驻", rows > 0 and fam_btns == rows and note_btns == rows, f"{rows}/{fam_btns}/{note_btns}")
 
-    # 验收10：窄 viewport 🔗/📝 浮层为底部抽屉（position: fixed）
+    # 验收10：窄 viewport 🔗/📝 浮层为底部抽屉（portal 到 body，bottom-0 贴底）
     page.set_viewport_size({"width":390,"height":844}); page.wait_for_timeout(400)
     page.get_by_label("crack down 的词族").click(); page.wait_for_timeout(400)
-    pos = page.evaluate("""() => {
-      const els = [...document.querySelectorAll('li.glass-card div')];
-      const p = els.find(e => e.className.includes('max-sm:fixed') && e.offsetParent !== null);
-      return p ? getComputedStyle(p).position : 'none';
+    drawer = page.evaluate("""() => {
+      const p = [...document.querySelectorAll('body > div.fixed')].find(e => e.className.includes('rounded-t-2xl') && e.getBoundingClientRect().height > 0);
+      if (!p) return null;
+      const cs = getComputedStyle(p);
+      return { pos: cs.position, bottom: cs.bottom };
     }""")
-    ok("S7-10 窄屏浮层为底部抽屉", pos == "fixed", pos)
+    ok("S7-10 窄屏浮层为底部抽屉", drawer and drawer["pos"] == "fixed" and drawer["bottom"] == "0px", str(drawer))
+    page.get_by_label("crack down 的词族").click(); page.wait_for_timeout(300)
     page.set_viewport_size({"width":1280,"height":900})
+
+    # bug批③：笔记浮层 portal 到 body，行被滚到顶部贴导航时浮层仍完整可见不被覆盖
+    page.locator("button[aria-label='关闭']").first.click(); page.wait_for_timeout(400)  # 关「我的词组」弹窗
+    page.locator("input[placeholder='搜索单词或释义…']").press_sequentially("crack a code", delay=20); page.wait_for_timeout(500)
+    page.get_by_label("crack a code 的关联笔记").first.click(); page.wait_for_timeout(400)
+    pop = page.locator("body > div.fixed").filter(has_text="关联笔记").first
+    pop.locator("button", has_text="新建").click(); page.wait_for_timeout(200)
+    pop.locator("input[placeholder='笔记标题']").fill("测试笔记标题"); page.wait_for_timeout(200)
+    # 浮层堆叠最顶：elementFromPoint 落在浮层内
+    top_ok = page.evaluate("""() => {
+      const p = [...document.querySelectorAll('body > div.fixed')].find(e=>e.className.includes('z-[200]'));
+      if (!p) return false;
+      const r = p.getBoundingClientRect();
+      const el = document.elementFromPoint(r.x + r.width/2, r.y + r.height/2);
+      return p.contains(el);
+    }""")
+    ok("bug③ 笔记浮层不被覆盖(portal最顶)", top_ok)
+    ok("bug③ 浮层内容完整可见", "测试笔记标题" in pop.locator("input[placeholder='笔记标题']").input_value())
+    page.keyboard.press("Escape"); page.wait_for_timeout(200)
 
     b.close()
 

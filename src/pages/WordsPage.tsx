@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -88,6 +89,9 @@ function WordRow({
   const familyMembers = it.familyKey ? getFamilyMembers(it.familyKey) : [];
   const relatedMemos = popover === "notes" ? getMemosForWord(it.id) : [];
   const rowRef = useRef<HTMLLIElement>(null);
+  // 浮层 fixed 定位的锚点（桌面端贴在行下方；移动端走 CSS 底部抽屉，不需要坐标）
+  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number; width: number } | null>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   // 单击编辑的 300ms 节流（防双击/快速点击弹两次）
   const lastEditTap = useRef(0);
   // 长按进编辑（移动端），需 preventDefault 阻止 iOS 系统菜单
@@ -113,10 +117,39 @@ function WordRow({
   useEffect(() => {
     if (!popover) return;
     const close = (e: MouseEvent) => {
-      if (rowRef.current && !rowRef.current.contains(e.target as Node)) setPopover(null);
+      const t = e.target as Node;
+      const inRow = rowRef.current?.contains(t);
+      const inPop = popRef.current?.contains(t);
+      if (!inRow && !inPop) setPopover(null);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
+  }, [popover]);
+
+  // 浮层打开时：桌面端计算 fixed 锚点（脱离 overflow/backdrop-blur 裁剪），
+  // 滚动/缩放时跟随行位置
+  useEffect(() => {
+    if (!popover) {
+      setPopoverPos(null);
+      return;
+    }
+    const update = () => {
+      const r = rowRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const NAV = 88; // 顶栏高度 + 安全距离
+      const below = r.bottom + 6;
+      // 行下方被固定导航遮住时，浮层翻到行上方（上限不越过导航）
+      const top = below < NAV ? Math.max(r.top - 6 - 180, NAV) : below;
+      // 向上偏移半行宽，避开与浮层同高处的兄弟区块
+      setPopoverPos({ left: r.left + r.width * 0.22, top, width: r.width * 0.78 });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
   }, [popover]);
 
   // 长按：preventDefault 阻止 iOS Safari 选择/复制/词典系统菜单
@@ -136,7 +169,7 @@ function WordRow({
   return (
     <li
       ref={rowRef}
-      className={`glass-card relative rounded-lg px-3 py-1.5 transition-all duration-300 ${popover ? "z-40" : ""} ${
+      className={`glass-card relative rounded-lg px-3 py-1.5 transition-all duration-300 ${
         it.excluded ? "opacity-45" : ""
       } ${checked ? "!border-blue-300/40" : ""}`}
     >
@@ -258,10 +291,13 @@ function WordRow({
         </p>
       )}
 
-      {/* 🔗 词族浮层 / 📝 笔记浮层：桌面弹层，移动端底部抽屉 */}
-      {popover && (
+      {/* 🔗 词族浮层 / 📝 笔记浮层：fixed 定位脱离行内 overflow/backdrop-blur 裁剪；
+          桌面端贴在行下方（JS 锚点），移动端底部抽屉 */}
+      {popover && popoverPos && createPortal(
         <div
-          className="absolute left-0 right-0 top-full z-40 mt-1 rounded-xl border border-white/10 bg-[#12161d] p-3 shadow-xl max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:left-auto max-sm:right-auto max-sm:top-auto max-sm:mt-0 max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-4"
+          ref={popRef}
+          style={{ left: popoverPos.left, top: popoverPos.top, width: popoverPos.width }}
+          className="fixed z-[200] rounded-xl border border-white/10 bg-[#12161d] p-3 shadow-xl max-sm:inset-x-0 max-sm:bottom-0 max-sm:left-auto max-sm:top-auto max-sm:w-auto max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:p-4"
           onClick={(e) => e.stopPropagation()}
         >
           {popover === "family" && (
@@ -358,7 +394,8 @@ function WordRow({
               )}
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </li>
   );
