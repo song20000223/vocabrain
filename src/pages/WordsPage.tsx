@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { speak } from "@/lib/speak";
+import { hasBackend } from "@/lib/apiMode";
 import {
   addMemo,
   getMemosForWord,
@@ -604,6 +605,11 @@ export default function WordsPage() {
     const q = query.trim();
     setAiResult(null);
     setAiError("");
+    // 纯前端模式：不发起 AI 请求（UI 层显示「AI 查词未启用」）
+    if (!hasBackend) {
+      setAiLoading(false);
+      return;
+    }
     // 太短、或词库已有精确匹配时没必要问 AI
     if (q.length < 2 || (searchResults?.some((w) => w.word.toLowerCase() === q.toLowerCase()) ?? false)) {
       setAiLoading(false);
@@ -774,8 +780,15 @@ export default function WordsPage() {
           </div>
         )}
 
-        {/* AI 翻译：输入英文给释义，输入中文给候选英文词，一键加入词书 */}
-        {query.trim().length >= 2 && (aiLoading || aiResult || aiError) && (
+        {/* AI 翻译：输入英文给释义，输入中文给候选英文词，一键加入词书；纯前端模式提示未启用 */}
+        {query.trim().length >= 2 && !hasBackend && (
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-xs tracking-wide text-white/35">
+              纯前端模式：AI 查词未启用（未配置后端 VITE_API_URL）
+            </p>
+          </div>
+        )}
+        {query.trim().length >= 2 && hasBackend && (aiLoading || aiResult || aiError) && (
           <div className="mt-4 rounded-xl border border-blue-300/15 bg-blue-400/5 p-4">
             <p className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-blue-200/60">
               <Languages className="h-3.5 w-3.5" /> AI 翻译

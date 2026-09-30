@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import superjson from "superjson";
 import type { AppRouter } from "../../api/router";
 import type { ReactNode } from "react";
+import { API_URL } from "@/lib/apiMode";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -11,14 +12,9 @@ const queryClient = new QueryClient();
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "/api/trpc",
+      // 未配 VITE_API_URL 时为相对路径：本地开发走 Vite 代理，纯前端模式不会发起调用
+      url: `${API_URL}/api/trpc`,
       transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
-      },
     }),
   ],
 });

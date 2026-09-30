@@ -1,0 +1,13 @@
+# Netlify 部署配置（纯前端模式或接独立后端均可）
+# 后端地址：Site configuration → Environment variables → VITE_API_URL
+# 不配 VITE_API_URL → 纯前端模式（AI 查词/判词降级，其余功能完整）
+
+[build]
+  command = "npx vite build"
+  publish = "dist/public"
+
+# SPA 路由回退
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

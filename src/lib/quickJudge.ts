@@ -98,6 +98,9 @@ export function matchDictation(answer: string, meanings: MeaningGroup[]): boolea
   return false;
 }
 
+/** 本地严格判分的兜底评语（判不出时提示走本地严格匹配） */
+export const LOCAL_JUDGE_COMMENT = "本地严格匹配：未命中词库义项";
+
 /** 后台预取一个答案的 AI 判分结果（失败时静默，提交时再走正常流程） */
 export function prefetchJudge(
   req: JudgeRequest,

@@ -2,7 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Zap } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { formatMeanings, type MeaningGroup } from "@/lib/store";
-import { quickLocalJudge, checkSpelling, type PrefetchedResult } from "@/lib/quickJudge";
+import { quickLocalJudge, checkSpelling, LOCAL_JUDGE_COMMENT, type PrefetchedResult } from "@/lib/quickJudge";
+import { hasBackend } from "@/lib/apiMode";
+
+/** 「AI 不可用 → 本地判分」降级提示：同一页面会话只提示一次 */
+let aiFallbackNotified = false;
+function notifyAiFallback(): string {
+  if (!aiFallbackNotified) {
+    aiFallbackNotified = true;
+    return "AI 判分暂时不可用，已切换本地严格匹配（本次会话不再提示）";
+  }
+  return LOCAL_JUDGE_COMMENT;
+}
 
 export interface QuizWord {
   id: string;
@@ -115,6 +126,12 @@ export default function QuizSession({
   useEffect(() => {
     if (!isReverse || !current) return;
     if (current.meanings.length > 0 || aiDefs[current.word] !== undefined) return;
+    if (!hasBackend) {
+      // 纯前端模式：无 AI 题干生成，直接占位，渲染层据此跳过该题
+      if (aiDefs[current.word] === undefined)
+        setAiDefs((m) => ({ ...m, [current.word]: "" }));
+      return;
+    }
     let cancelled = false;
     setPromptLoading(true);
     client.define
@@ -152,7 +169,8 @@ export default function QuizSession({
   );
 
   useEffect(() => {
-    if (isReverse || !current || result) return;
+    // 纯前端模式不做 AI 预取（本地判分在提交时走）
+    if (!hasBackend || isReverse || !current || result) return;
     const t = window.setTimeout(() => prefetch(current, answer), 400);
     return () => window.clearTimeout(t);
   }, [answer, current, result, prefetch, isReverse]);
@@ -175,12 +193,13 @@ export default function QuizSession({
       judgedRef.current(current, ans, res);
       if (correct) correctRef.current?.(current);
       else {
-        // 答错时后台补一条 AI 评语（不阻塞界面，失败也无所谓）
-        callJudge(current.word, ans, current.meanings)
-          .then((ai) =>
-            setResult((r) => (r && !r.correct ? { ...r, comment: ai.comment } : r)),
-          )
-          .catch(() => {});
+        // 答错时后台补一条 AI 评语（不阻塞界面，纯前端模式跳过）
+        if (hasBackend)
+          callJudge(current.word, ans, current.meanings)
+            .then((ai) =>
+              setResult((r) => (r && !r.correct ? { ...r, comment: ai.comment } : r)),
+            )
+            .catch(() => {});
       }
       return;
     }
@@ -191,9 +210,25 @@ export default function QuizSession({
       const cached = cache.current.get(key);
       if (cached) {
         res = await cached;
+      } else if (!hasBackend) {
+        // 纯前端模式：只有本地严格匹配，判不出即判错
+        res = quickLocalJudge(ans, current.meanings) ?? {
+          correct: false,
+          standardMeaning: formatMeanings(current.meanings).join("；") || current.word,
+          comment: "纯前端模式：未命中词库义项，按错处理（AI 判分未启用）",
+        };
       } else {
-        const local = quickLocalJudge(ans, current.meanings);
-        res = local ?? (await callJudge(current.word, ans, current.meanings));
+        try {
+          res = quickLocalJudge(ans, current.meanings) ?? (await callJudge(current.word, ans, current.meanings));
+        } catch {
+          // 后端挂了的自动降级：本地匹配兜底 + 提示一次
+          res = quickLocalJudge(ans, current.meanings) ?? {
+            correct: false,
+            standardMeaning: formatMeanings(current.meanings).join("；") || current.word,
+            comment: notifyAiFallback(),
+          };
+          if (res.correct) res = { ...res, comment: notifyAiFallback() };
+        }
       }
       setResult(res);
       judgedRef.current(current, ans, res);
@@ -257,6 +292,18 @@ export default function QuizSession({
             {promptLoading && !promptText ? (
               <span className="flex items-center justify-center gap-2 text-sm tracking-wide text-white/40">
                 <Loader2 className="h-4 w-4 animate-spin" /> AI 正在生成中文题干…
+              </span>
+            ) : !promptText && !hasBackend ? (
+              <span className="flex flex-col items-center gap-3">
+                <span className="text-sm tracking-wide text-white/40">
+                  该词词库无释义，纯前端模式无法生成题干，请跳过
+                </span>
+                <button
+                  onClick={next}
+                  className="ghost-btn min-h-[36px] px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+                >
+                  跳过本题
+                </button>
               </span>
             ) : (
               <span className="text-3xl font-medium leading-relaxed text-white sm:text-4xl">

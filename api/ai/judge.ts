@@ -89,7 +89,7 @@ async function judgeWithDeepSeek(word: string, answer: string, apiKey: string, m
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: readEnv("DEEPSEEK_MODEL") ?? "deepseek-chat",
       messages: [{ role: "user", content: buildPrompt(word, answer, meanings) }],
       response_format: { type: "json_object" },
       temperature: 0.3,
@@ -172,7 +172,7 @@ async function defineWithDeepSeek(word: string, apiKey: string): Promise<DefineR
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: readEnv("DEEPSEEK_MODEL") ?? "deepseek-chat",
       messages: [{ role: "user", content: buildDefinePrompt(word) }],
       response_format: { type: "json_object" },
       temperature: 0.2,
@@ -239,7 +239,7 @@ async function reverseWithDeepSeek(chinese: string, apiKey: string): Promise<Rev
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: readEnv("DEEPSEEK_MODEL") ?? "deepseek-chat",
       messages: [{ role: "user", content: buildReversePrompt(chinese) }],
       response_format: { type: "json_object" },
       temperature: 0.2,

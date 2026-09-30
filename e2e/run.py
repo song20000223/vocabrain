@@ -8,15 +8,22 @@ def ok(name, cond, extra=""):
     print(("PASS" if cond else "FAIL"), name, extra)
 
 def answer_loop(page, n, wrong_words, source_label):
-    """答 n 题；对 wrong_words 里的词故意答错"""
+    """答 n 题；对 wrong_words 里的词故意答错（用必错答案，避开本地极速判定）"""
     for _ in range(n):
         card = page.locator("body").inner_text().split("在这里")[0]
         wrong = next((w for w in wrong_words if w in card), None)
-        ans = "完全错的答案" if wrong else "放弃"
-        if wrong and "峡谷" in card: ans = "房间"
+        # 「完全错的答案」包含本地命中的子串（如 chamber 的义项「答」），
+        # 会被极速判定误判为对——统一用必错的「天气真好」
+        ans = "天气真好"
         page.locator("textarea").first.press_sequentially(ans)
         page.click("button:has-text('提交答案')")
-        page.wait_for_timeout(3000)
+        # 等判分结果出现（AI 判分可能 5 秒以上），再点下一个
+        for _ in range(30):
+            page.wait_for_timeout(500)
+            body_now = page.locator("body").inner_text()
+            if "回答正确" in body_now or "回答错误" in body_now:
+                break
+        page.wait_for_timeout(300)
         for label in ["下一个单词", "下一个", "查看结果", "完成", "结束"]:
             btn = page.locator(f"button:has-text('{label}')").first
             if btn.count():
