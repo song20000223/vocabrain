@@ -340,7 +340,7 @@ const SEED: Array<[string, string, string[]]> = [
 // ---------- 词库 ----------
 
 /** 读取全部单词（含软删除），仅供内部写操作使用 */
-function readAllWords(): WordItem[] {
+export function readAllWords(): WordItem[] {
   const raw = localStorage.getItem(WORDS_KEY);
   if (raw === null) {
     // 首次打开：写入内置示例

@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage";
 import TestPage from "./pages/TestPage";
 import WrongBookPage from "./pages/WrongBookPage";
 import WordsPage from "./pages/WordsPage";
+import MemosPage from "./pages/MemosPage";
 
 export default function App() {
   useMagneticRipple();
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/test" element={<TestPage />} />
         <Route path="/wrong-book" element={<WrongBookPage />} />
         <Route path="/words" element={<WordsPage />} />
+        <Route path="/memos" element={<MemosPage />} />
         <Route
           path="*"
           element={

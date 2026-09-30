@@ -62,6 +62,8 @@ export function quickLocalJudge(
 /**
  * 听写判定：忽略大小写、空格、标点；义项按 / ；; ，, 、 拆分，
  * 任一义项片段命中即通过。单字义项（如"腔"）只做精确相等；多字片段允许互相包含。
+ * 同一词性组内的单字义项额外生成「排列拼接」候选（如 腔+室 → "腔室"/"室腔"），
+ * 合并写法算对；但拼接候选同样要求精确相等，"胸腔"不会误中。
  */
 export function matchDictation(answer: string, meanings: MeaningGroup[]): boolean {
   const norm = (s: string) =>
@@ -72,6 +74,7 @@ export function matchDictation(answer: string, meanings: MeaningGroup[]): boolea
   const a = norm(answer);
   if (!a) return false;
   for (const m of meanings) {
+    const singles: string[] = [];
     for (const def of m.definitions) {
       // 整条义项算一个候选，拆开后的片段各自也算候选
       const candidates = [def, ...def.split(/[/／;；,，、]/)];
@@ -80,6 +83,15 @@ export function matchDictation(answer: string, meanings: MeaningGroup[]): boolea
         if (!p) continue;
         if (p === a) return true;
         if (p.length >= 2 && (a.includes(p) || p.includes(a))) return true;
+        if (p.length === 1) singles.push(p);
+      }
+    }
+    // 单字义项拼接候选（两字排列）："腔室" / "室腔" 算对，"胸腔" 仍判错
+    if (singles.length >= 2) {
+      for (let i = 0; i < singles.length; i++) {
+        for (let j = 0; j < singles.length; j++) {
+          if (i !== j && singles[i] + singles[j] === a) return true;
+        }
       }
     }
   }

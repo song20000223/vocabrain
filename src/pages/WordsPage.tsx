@@ -20,6 +20,12 @@ import {
 import { trpc } from "@/providers/trpc";
 import { speak } from "@/lib/speak";
 import {
+  addMemo,
+  getMemosForWord,
+  type MemoItem,
+} from "@/lib/memo";
+import ExportDialog from "@/components/ExportDialog";
+import {
   getWords,
   getBooks,
   addBook,
@@ -66,6 +72,12 @@ function WordRow({
   const [editing, setEditing] = useState(false);
   const [groups, setGroups] = useState<EditGroup[]>([]);
   const [fallbackTip, setFallbackTip] = useState(false);
+  const [noneTip, setNoneTip] = useState(false);
+  // 关联笔记展开态
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [noteDraft, setNoteDraft] = useState<{ title: string; content: string } | null>(null);
+  const relatedMemos = notesOpen ? getMemosForWord(it.id) : [];
+  const memoCount = getMemosForWord(it.id).length;
 
   const startEdit = () => {
     setGroups(
@@ -93,7 +105,11 @@ function WordRow({
 
   const handleSpeak = () => {
     const r = speak(it.word);
-    if (r.voice === "fallback" && !sessionStorage.getItem("vocab_tts_tip")) {
+    if (r.voice === "none" && !sessionStorage.getItem("vocab_tts_none_tip")) {
+      sessionStorage.setItem("vocab_tts_none_tip", "1");
+      setNoneTip(true);
+      window.setTimeout(() => setNoneTip(false), 3500);
+    } else if (r.voice === "fallback" && !sessionStorage.getItem("vocab_tts_tip")) {
       sessionStorage.setItem("vocab_tts_tip", "1");
       setFallbackTip(true);
       window.setTimeout(() => setFallbackTip(false), 3500);
@@ -204,12 +220,17 @@ function WordRow({
             >
               {it.excluded ? <CircleCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
             </button>
-            {/* 记笔记：S6 接入，先占位 */}
+            {/* 记笔记：有笔记高亮，点击展开/收起关联笔记 */}
             <button
-              disabled
-              aria-label="记笔记（即将上线）"
-              title="记笔记（S6 上线）"
-              className="flex min-h-[28px] min-w-[28px] cursor-not-allowed items-center justify-center rounded-full text-white/12"
+              onClick={(e) => {
+                e.stopPropagation();
+                setNotesOpen((v) => !v);
+              }}
+              aria-label={`查看 ${it.word} 的关联笔记`}
+              title={memoCount > 0 ? `关联笔记（${memoCount} 条）` : "记笔记"}
+              className={`flex min-h-[28px] min-w-[28px] items-center justify-center rounded-full transition-colors ${
+                memoCount > 0 ? "text-amber-200/80 hover:text-amber-200" : "text-white/25 hover:text-blue-200"
+              }`}
             >
               <StickyNote className="h-3.5 w-3.5" />
             </button>
@@ -292,8 +313,84 @@ function WordRow({
       )}
       {fallbackTip && (
         <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
-          当前环境无英式语音，已用系统默认语音播放
+          当前环境无英式语音，已用默认语音代替
         </p>
+      )}
+      {noneTip && (
+        <p className="mt-1 text-[11px] tracking-wide text-amber-200/60">
+          当前环境无可用语音，请检查系统语音包
+        </p>
+      )}
+
+      {/* 关联笔记：默认折叠；支持新建（自动带上当前单词 id） */}
+      {notesOpen && (
+        <div className="mt-2 rounded-lg border border-white/8 bg-white/[0.02] p-3" onClick={(e) => e.stopPropagation()}>
+          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-white/30">
+            关联笔记（{relatedMemos.length}）
+          </p>
+          {relatedMemos.length > 0 && (
+            <ul className="mb-2 flex flex-col gap-1.5">
+              {relatedMemos.map((m: MemoItem) => (
+                <li key={m.id} className="rounded-lg bg-white/[0.03] px-3 py-2">
+                  <p className="text-sm font-medium tracking-wide text-white/85">
+                    {m.title || "（无标题）"}
+                  </p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-xs leading-relaxed tracking-wide text-white/55">
+                    {m.content}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+          {noteDraft ? (
+            <div className="flex flex-col gap-2">
+              <input
+                value={noteDraft.title}
+                onChange={(e) => setNoteDraft({ ...noteDraft, title: e.target.value })}
+                placeholder="笔记标题"
+                autoFocus
+                className="glass-input min-h-[36px] rounded-lg px-3 text-sm tracking-wide"
+              />
+              <textarea
+                value={noteDraft.content}
+                onChange={(e) => setNoteDraft({ ...noteDraft, content: e.target.value })}
+                placeholder="内容…"
+                rows={3}
+                className="glass-input w-full resize-y rounded-lg p-3 text-sm tracking-wide"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setNoteDraft(null)}
+                  className="min-h-[32px] rounded-full px-3 text-xs text-white/40 hover:text-white"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    if (!noteDraft.title.trim() && !noteDraft.content.trim()) return;
+                    addMemo(noteDraft.title.trim(), noteDraft.content, {
+                      relatedWordIds: [it.id],
+                      bookId: it.bookId,
+                    });
+                    setNoteDraft(null);
+                    onChanged();
+                  }}
+                  disabled={!noteDraft.title.trim() && !noteDraft.content.trim()}
+                  className="glow-btn min-h-[32px] rounded-full px-4 text-xs disabled:opacity-35"
+                >
+                  保存
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setNoteDraft({ title: "", content: "" })}
+              className="ghost-btn min-h-[32px] px-3 text-xs"
+            >
+              <Plus className="h-3 w-3" /> 新建关联笔记
+            </button>
+          )}
+        </div>
       )}
     </li>
   );
@@ -341,6 +438,13 @@ export default function WordsPage() {
   const [chapterPanelOpen, setChapterPanelOpen] = useState(
     () => localStorage.getItem("vocab_chapter_panel") === "1",
   );
+  // 导出弹窗
+  const [exportScope, setExportScope] = useState<{
+    scopeLabel: string;
+    scopeName: string;
+    pool: WordItem[];
+    withTime?: boolean;
+  } | null>(null);
 
   const navigate = useNavigate();
 
@@ -379,6 +483,18 @@ export default function WordsPage() {
     refresh();
     window.addEventListener("vocab-store-change", refresh);
     return () => window.removeEventListener("vocab-store-change", refresh);
+  }, []);
+
+  // 笔记 → 单词跳转：/words?focus=wordId → 打开所在词书弹窗
+  useEffect(() => {
+    const focus = new URLSearchParams(window.location.search).get("focus");
+    if (!focus) return;
+    const w = getWords().find((it) => it.id === focus);
+    if (w) {
+      const b = getBooks().find((it) => it.id === w.bookId);
+      if (b) openBookModal(b.id, b.name);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showTip = (msg: string) => {
@@ -974,6 +1090,34 @@ export default function WordsPage() {
                   <Volume2 className="mr-1 inline h-3.5 w-3.5" /> 听写本页
                 </button>
               )}
+              {openBookTotal > 0 && !selecting && (
+                <button
+                  onClick={() => {
+                    // 范围跟当前节点走：词书含章节，章节仅自身
+                    const ids = openBookIsChapter
+                      ? [openBook.id]
+                      : [openBook.id, ...openBookChapters.map((c) => c.id)];
+                    const pool = words.filter((w) => ids.includes(w.bookId));
+                    const chapterWords = openBookChapters.reduce(
+                      (s, c) => s + bookWordCount(c.id),
+                      0,
+                    );
+                    setExportScope({
+                      scopeLabel: openBookIsChapter
+                        ? `${openBook.name}（共 ${pool.length} 个）`
+                        : openBookChapters.length > 0
+                          ? `${openBook.name}（含 ${openBookChapters.length} 章节，共 ${openBookTotal + chapterWords} 个）`
+                          : `${openBook.name}（共 ${pool.length} 个）`,
+                      scopeName: openBook.name,
+                      pool,
+                    });
+                  }}
+                  title="导出当前范围单词"
+                  className="ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+                >
+                  导出
+                </button>
+              )}
               {openBookTotal > 0 && (
                 <button
                   onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
@@ -1043,6 +1187,21 @@ export default function WordsPage() {
                   className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"
                 >
                   恢复测试
+                </button>
+                <button
+                  onClick={() => {
+                    const pool = words.filter((w) => checkedIds.has(w.id));
+                    if (pool.length > 0)
+                      setExportScope({
+                        scopeLabel: `选中的 ${pool.length} 个单词`,
+                        scopeName: "选中单词",
+                        pool,
+                      });
+                  }}
+                  disabled={checkedIds.size === 0}
+                  className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"
+                >
+                  导出选中
                 </button>
                 <button
                   onClick={batchDelete}
@@ -1193,6 +1352,16 @@ export default function WordsPage() {
             )}
           </div>
         </div>
+      )}
+      {/* 导出弹窗 */}
+      {exportScope && (
+        <ExportDialog
+          scopeLabel={exportScope.scopeLabel}
+          scopeName={exportScope.scopeName}
+          pool={exportScope.pool}
+          withTime={exportScope.withTime}
+          onClose={() => setExportScope(null)}
+        />
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { BookOpen, PenLine, BookmarkX, ListPlus } from "lucide-react";
+import { BookOpen, PenLine, BookmarkX, ListPlus, StickyNote } from "lucide-react";
 import RainBackground from "./RainBackground";
 
 const NAV_ITEMS = [
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: "/test", label: "测试", icon: PenLine },
   { to: "/wrong-book", label: "错题本", icon: BookmarkX },
   { to: "/words", label: "词库", icon: ListPlus },
+  { to: "/memos", label: "备忘录", icon: StickyNote },
 ];
 
 export default function Layout() {

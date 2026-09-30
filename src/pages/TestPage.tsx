@@ -14,6 +14,7 @@ import QuizSession, {
   type QuizWord,
 } from "@/components/QuizSession";
 import DictationSession from "@/components/DictationSession";
+import ExportDialog from "@/components/ExportDialog";
 import CountWheel from "@/components/CountWheel";
 import {
   getWords,
@@ -95,6 +96,9 @@ export default function TestPage() {
     searchParams.get("mode") === "dictation" ? "dictation" : "quiz",
   );
   const [dictQueue, setDictQueue] = useState<QuizWord[] | null>(null);
+  // 最近一次完成会话的 id 快照（测试结果导出用）
+  const [lastSessionIds, setLastSessionIds] = useState<string[] | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   useEffect(() => {
     const isDict = searchParams.get("mode") === "dictation";
     if (searchParams.get("source") === "wrong") {
@@ -272,7 +276,10 @@ export default function TestPage() {
         onWrong={handleDictWrong}
         exitText="退出听写"
         onExit={() => setDictQueue(null)}
-        onFinish={() => setDictQueue(null)}
+        onFinish={() => {
+          setLastSessionIds(dictQueue.map((w) => w.id));
+          setDictQueue(null);
+        }}
       />
     );
   }
@@ -288,6 +295,7 @@ export default function TestPage() {
         onJudged={handleJudged}
         onFinish={() => {
           celebrateRain();
+          setLastSessionIds(queue.map((w) => w.id));
           const s = roundStats(direction);
           if (s.total > 0 && s.tested >= s.total) {
             setRoundFlash(s.round);
@@ -321,6 +329,29 @@ export default function TestPage() {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
+      {/* 上次会话结果导出 */}
+      {lastSessionIds && (
+        <div className="glass-card flex items-center justify-between gap-3 rounded-2xl px-5 py-3">
+          <p className="text-sm tracking-wide text-white/50">
+            上次会话共 {lastSessionIds.length} 个
+          </p>
+          <button
+            onClick={() => setExportOpen(true)}
+            className="ghost-btn min-h-[36px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+          >
+            导出本次结果
+          </button>
+        </div>
+      )}
+      {exportOpen && lastSessionIds && (
+        <ExportDialog
+          scopeLabel={`测试结果（${lastSessionIds.length} 个）`}
+          scopeName="测试结果"
+          pool={getWordsByIds(lastSessionIds)}
+          withTime
+          onClose={() => setExportOpen(false)}
+        />
+      )}
       <div className="text-center">
         <p className="eyebrow">Test Setup</p>
         <h1 className="hero-title mt-3 text-4xl sm:text-5xl">单词测试</h1>
