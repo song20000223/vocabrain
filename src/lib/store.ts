@@ -466,7 +466,7 @@ export function parsePosAndDefs(rest: string): { pos: string; defs: string[] } {
     .split(/[;；、]/)
     .flatMap((d) =>
       // 逗号也作义项分隔，但前提是切完两侧都不含拉丁字符（避免拆坏英文释义/例句）
-      d.split(/[,，]/).map((x) => x.trim()).filter((x, i, arr) => {
+      d.split(/[,，]/).map((x) => x.trim()).filter((_x, _i, arr) => {
         if (arr.length === 1) return true;
         return arr.every((y) => !/[A-Za-z]/.test(y));
       }),

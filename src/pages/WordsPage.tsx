@@ -563,7 +563,9 @@ export default function WordsPage() {
       setDefs("");
       showTip(
         dup
-          ? `「${dup.word}」已存在，义项已合并进去`
+          ? dup.bookId !== toBook
+            ? `「${dup.word}」已存在于「${bookName(dup.bookId)}」，义项已合并到该书，未加入「${bookName(toBook)}」`
+            : `「${dup.word}」已存在，义项已合并进去`
           : addType === "phrase"
             ? `词组已加入「我的词组」`
             : "添加成功",
@@ -647,11 +649,13 @@ export default function WordsPage() {
   /** 一键把 AI 结果加入词书 */
   const quickAdd = (w: string, def: string) => {
     const { pos, definitions } = parseAiDefinition(def);
-    const dup = words.some((it) => it.word.toLowerCase() === w.toLowerCase());
+    const dup = words.find((it) => it.word.toLowerCase() === w.toLowerCase());
     if (addWord(w, pos, definitions, targetBook)) {
       showTip(
         dup
-          ? `「${w}」已在词库中，义项已合并`
+          ? dup.bookId !== targetBook
+            ? `「${w}」已存在于「${bookName(dup.bookId)}」，义项已合并到该书，未加入「${bookName(targetBook)}」`
+            : `「${w}」已在词库中，义项已合并`
           : `已把「${w}」加入「${bookName(targetBook)}」`,
       );
       refresh();

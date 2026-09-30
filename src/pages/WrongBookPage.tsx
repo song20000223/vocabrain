@@ -246,7 +246,7 @@ export default function WrongBookPage() {
                   你的答案　<span className="text-red-300/85">{it.yourAnswer}</span>
                 </p>
                 <p className="text-white/35">
-                  AI 评语　<span className="text-white/70">{it.comment}</span>
+                  {it.source === "dictation" ? "听写评语" : "AI 评语"}　<span className="text-white/70">{it.comment}</span>
                 </p>
                 <p className="font-mono text-[11px] text-white/25">
                   {new Date(it.wrongAt).toLocaleString("zh-CN")}

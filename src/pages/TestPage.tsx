@@ -329,15 +329,15 @@ export default function TestPage() {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
-      {/* 上次会话结果导出 */}
+      {/* 上次会话结果导出：次级提示条，不抢主流程 */}
       {lastSessionIds && (
-        <div className="glass-card flex items-center justify-between gap-3 rounded-2xl px-5 py-3">
-          <p className="text-sm tracking-wide text-white/50">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-white/5 px-4 py-2">
+          <p className="text-xs tracking-wide text-white/30">
             上次会话共 {lastSessionIds.length} 个
           </p>
           <button
             onClick={() => setExportOpen(true)}
-            className="ghost-btn min-h-[36px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+            className="shrink-0 text-xs tracking-wide text-white/35 underline-offset-4 hover:text-blue-200 hover:underline"
           >
             导出本次结果
           </button>
