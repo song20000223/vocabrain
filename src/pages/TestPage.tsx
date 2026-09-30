@@ -13,11 +13,13 @@ import QuizSession, {
   type QuizJudgeResult,
   type QuizWord,
 } from "@/components/QuizSession";
+import DictationSession from "@/components/DictationSession";
 import CountWheel from "@/components/CountWheel";
 import {
   getWords,
   getBooks,
   getChapters,
+  getWrongBook,
   isChapter,
   addToWrongBook,
   markTestedInRound,
@@ -87,14 +89,31 @@ export default function TestPage() {
     null,
   );
 
-  // 从单词页手动勾选带过来的快照：?ids=a,b,c → 直接开考
+  // 从单词页手动勾选 / 错题本带过来的快照：?ids=a,b,c → 直接开考；mode=dictation → 听写；source=wrong → 错题队列
   const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<"quiz" | "dictation">(
+    searchParams.get("mode") === "dictation" ? "dictation" : "quiz",
+  );
+  const [dictQueue, setDictQueue] = useState<QuizWord[] | null>(null);
   useEffect(() => {
+    const isDict = searchParams.get("mode") === "dictation";
+    if (searchParams.get("source") === "wrong") {
+      const items = getWrongBook();
+      if (items.length > 0) {
+        const q = items.map((it) => ({ id: it.id, word: it.word, meanings: it.meanings }));
+        if (isDict) setDictQueue(q);
+        else setQueue(q);
+      }
+      return;
+    }
     const ids = searchParams.get("ids");
     if (!ids) return;
     const list = ids.split(",").filter(Boolean);
     const picked = getWordsByIds(list);
-    if (picked.length > 0) setQueue(picked);
+    if (picked.length > 0) {
+      if (isDict) setDictQueue(picked);
+      else setQueue(picked);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,9 +161,30 @@ export default function TestPage() {
   const startWithIds = (ids: string[]) => {
     const picked = getWordsByIds(ids);
     if (picked.length === 0) return;
-    setQueue(picked);
+    if (mode === "dictation") setDictQueue(picked);
+    else setQueue(picked);
     setPreviewIds(null);
     setPreviewOpen(false);
+  };
+
+  /** 听写错误：进错题本（source="dictation"），不计入测验轮次进度 */
+  const handleDictWrong = (word: QuizWord, answer: string) => {
+    const full = words.find((w) => w.id === word.id);
+    addToWrongBook(
+      full ?? {
+        ...word,
+        type: "word" as const,
+        bookId: "default",
+        orderInBook: 0,
+        mastered: false,
+        testedRounds: 0,
+        lastTestedAt: null,
+        excluded: false,
+      },
+      answer,
+      "听写错误",
+      "dictation",
+    );
   };
 
   const handleStart = () => {
@@ -224,6 +264,18 @@ export default function TestPage() {
   };
 
   // ---------- 测试进行 ----------
+
+  if (dictQueue) {
+    return (
+      <DictationSession
+        queue={dictQueue}
+        onWrong={handleDictWrong}
+        exitText="退出听写"
+        onExit={() => setDictQueue(null)}
+        onFinish={() => setDictQueue(null)}
+      />
+    );
+  }
 
   if (queue) {
     return (
@@ -337,7 +389,30 @@ export default function TestPage() {
 
       {/* 条件面板 */}
       <div className="glass-card rounded-2xl p-6">
-        {/* 方向选择 */}
+        {/* 模式选择：测验 / 听写 */}
+        <div className="mb-5 flex rounded-full border border-white/10 p-1">
+          {(
+            [
+              { v: "quiz", label: "测验" },
+              { v: "dictation", label: "听写" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.v}
+              onClick={() => setMode(m.v)}
+              className={`min-h-[36px] flex-1 rounded-full text-xs tracking-wide transition-all duration-300 ${
+                mode === m.v
+                  ? "bg-blue-400/20 text-blue-100 shadow-[0_0_12px_rgba(96,165,250,0.25)]"
+                  : "text-white/40 hover:text-white/70"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 方向选择（听写固定 听音→写中文，不显示） */}
+        {mode === "quiz" && (
         <div className="mb-5 grid grid-cols-2 gap-3">
           {(
             [
@@ -359,6 +434,7 @@ export default function TestPage() {
             </button>
           ))}
         </div>
+        )}
 
         {/* 词书选择器（树形：词书 → 章节） */}
         <div className="mb-5">
@@ -581,7 +657,7 @@ export default function TestPage() {
           disabled={!!rangeError || (previewMeta !== null && previewMeta.matched === 0)}
           className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.08em] disabled:opacity-35"
         >
-          <Play className="h-4 w-4" /> 开始测试
+          <Play className="h-4 w-4" /> {mode === "dictation" ? "开始听写" : "开始测试"}
         </button>
 
         <button

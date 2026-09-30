@@ -59,6 +59,33 @@ export function quickLocalJudge(
   return null;
 }
 
+/**
+ * 听写判定：忽略大小写、空格、标点；义项按 / ；; ，, 、 拆分，
+ * 任一义项片段命中即通过。单字义项（如"腔"）只做精确相等；多字片段允许互相包含。
+ */
+export function matchDictation(answer: string, meanings: MeaningGroup[]): boolean {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[\s\p{P}\p{S}]+/gu, "") // 去掉全部空白、标点、符号
+      .trim();
+  const a = norm(answer);
+  if (!a) return false;
+  for (const m of meanings) {
+    for (const def of m.definitions) {
+      // 整条义项算一个候选，拆开后的片段各自也算候选
+      const candidates = [def, ...def.split(/[/／;；,，、]/)];
+      for (const c of candidates) {
+        const p = norm(c);
+        if (!p) continue;
+        if (p === a) return true;
+        if (p.length >= 2 && (a.includes(p) || p.includes(a))) return true;
+      }
+    }
+  }
+  return false;
+}
+
 /** 后台预取一个答案的 AI 判分结果（失败时静默，提交时再走正常流程） */
 export function prefetchJudge(
   req: JudgeRequest,

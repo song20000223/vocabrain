@@ -1004,6 +1004,16 @@ export default function WordsPage() {
                   <Play className="mr-1 inline h-3.5 w-3.5" /> 用选中单词开始测试
                 </button>
                 <button
+                  onClick={() => {
+                    if (checkedIds.size === 0) return;
+                    navigate(`/test?mode=dictation&ids=${[...checkedIds].join(",")}`);
+                  }}
+                  disabled={checkedIds.size === 0}
+                  className="min-h-[36px] rounded-full border border-blue-300/25 px-4 text-xs tracking-wide text-blue-200/80 transition-colors hover:border-blue-300/50 hover:text-blue-200 disabled:opacity-30"
+                >
+                  <Volume2 className="mr-1 inline h-3.5 w-3.5" /> 听写选中
+                </button>
+                <button
                   onClick={() => batchExclude(true)}
                   disabled={checkedIds.size === 0}
                   className="min-h-[36px] rounded-full border border-white/15 px-4 text-xs tracking-wide text-white/70 transition-colors hover:border-blue-300/40 hover:text-blue-200 disabled:opacity-30"

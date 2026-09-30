@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trash2, Eraser, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Trash2, Eraser, Play, Volume2 } from "lucide-react";
 import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
 import {
   getWrongBook,
@@ -19,6 +20,7 @@ interface ReviewSummary {
 }
 
 export default function WrongBookPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<WrongItem[]>([]);
   // 复习状态
   const [reviewQueue, setReviewQueue] = useState<QuizWord[] | null>(null);
@@ -169,12 +171,20 @@ export default function WrongBookPage() {
                 答对后自动移出错题本（不勾选则保留并标记「已订正」）
               </label>
             </div>
-            <button
-              onClick={startReview}
-              className="glow-btn min-h-[48px] shrink-0 rounded-full px-8 text-sm tracking-[0.06em]"
-            >
-              <Play className="h-4 w-4" /> 开始复习错题
-            </button>
+            <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+              <button
+                onClick={startReview}
+                className="glow-btn min-h-[48px] rounded-full px-8 text-sm tracking-[0.06em]"
+              >
+                <Play className="h-4 w-4" /> 开始复习错题
+              </button>
+              <button
+                onClick={() => navigate("/test?mode=dictation&source=wrong")}
+                className="ghost-btn min-h-[48px] rounded-full px-6 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+              >
+                <Volume2 className="h-4 w-4" /> 听写错题
+              </button>
+            </div>
           </div>
         </div>
       )}
