@@ -4,7 +4,7 @@ import { formatMeanings } from "@/lib/store";
 import { speak } from "@/lib/speak";
 import { matchDictation } from "@/lib/quickJudge";
 import SessionReview, { type ReviewItem } from "./SessionReview";
-import { celebrateRain, type QuizWord } from "./QuizSession";
+import { celebrateRain, flashJudge, type QuizWord } from "./QuizSession";
 
 interface Props {
   queue: QuizWord[];
@@ -28,16 +28,21 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
   const [lastCorrect, setLastCorrect] = useState(false);
   const [results, setResults] = useState<boolean[]>([]);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  const [playing, setPlaying] = useState(false);
 
   const current = queue[index];
   const total = queue.length;
 
   const play = useCallback(() => {
-    if (current) speak(current.word);
+    if (!current) return;
+    setPlaying(true);
+    speak(current.word, "en-GB", { onEnd: () => setPlaying(false) });
   }, [current]);
 
   const playSlow = useCallback(() => {
-    if (current) speak(current.word, "en-GB", { rate: 0.6 });
+    if (!current) return;
+    setPlaying(true);
+    speak(current.word, "en-GB", { rate: 0.6, onEnd: () => setPlaying(false) });
   }, [current]);
 
   // 每题自动播放一遍
@@ -98,6 +103,7 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
       },
     ]);
     onJudged(current, answer.trim(), ok);
+    flashJudge(ok);
     setPhase("result");
   };
 
@@ -140,7 +146,7 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
           <button
             onClick={play}
             aria-label="重听发音"
-            className="glow-btn flex h-16 w-16 items-center justify-center !rounded-full"
+            className={`glow-btn flex h-16 w-16 items-center justify-center !rounded-full ${playing ? "speak-playing" : ""}`}
           >
             <Volume2 className="h-7 w-7" />
           </button>
@@ -176,7 +182,9 @@ export default function DictationSession({ queue, onJudged, onFinish, onRetryWro
           </button>
         </>
       ) : (
-        <div className="glass-card flex flex-col gap-4 rounded-2xl p-6">
+        <div
+          className={`glass-card flex flex-col gap-4 rounded-2xl p-6 ${lastCorrect ? "judge-correct" : ""}`}
+        >
           <p className="flex items-center gap-2 text-sm tracking-wide">
             {lastCorrect ? (
               <>

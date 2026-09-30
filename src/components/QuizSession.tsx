@@ -44,6 +44,26 @@ interface Props {
   onExit?: () => void;
 }
 
+/**
+ * 判定即时反馈：答对 = 数字雨短暂变亮（0.4s）；答错 = 屏幕边缘红闪（0.3s）。
+ * 尊重 prefers-reduced-motion：系统关动画时直接不播。
+ */
+export function flashJudge(correct: boolean) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (correct) {
+    const el = document.getElementById("rain-bg");
+    if (!el) return;
+    el.classList.remove("rain-bright");
+    void el.offsetWidth;
+    el.classList.add("rain-bright");
+  } else {
+    const d = document.createElement("div");
+    d.className = "wrong-flash";
+    document.body.appendChild(d);
+    window.setTimeout(() => d.remove(), 350);
+  }
+}
+
 /** 触发数字雨庆祝（一轮完成时） */
 export function celebrateRain() {
   const el = document.getElementById("rain-bg");
@@ -204,6 +224,7 @@ export default function QuizSession({
         comment: correct ? "拼写正确！" : `正确拼写：${current.word}`,
       };
       setResult(res);
+      flashJudge(correct);
       setReviewItems((arr) => [...arr, { id: current.id, word: current.word, answer: ans, correct, standardMeaning: current.word }]);
       judgedRef.current(current, ans, res);
       if (correct) correctRef.current?.(current);
@@ -255,6 +276,7 @@ export default function QuizSession({
         }
       }
       setResult(res);
+      if (!res.undecidable) flashJudge(res.correct);
       setReviewItems((arr) => [...arr, { id: current.id, word: current.word, answer: ans, correct: res.correct, standardMeaning: res.standardMeaning }]);
       judgedRef.current(current, ans, res);
       if (res.correct) correctRef.current?.(current);
@@ -275,6 +297,7 @@ export default function QuizSession({
     };
     setForgot(true);
     setResult(res);
+    flashJudge(false);
     setReviewItems((arr) => [...arr, { id: current.id, word: current.word, answer: "（忘记了）", correct: false, standardMeaning: standard }]);
     judgedRef.current(current, "（忘记了）", res);
   }, [current, result, isReverse]);
@@ -421,7 +444,7 @@ export default function QuizSession({
       {result && (
         <div
           className={`glass-card result-in rounded-2xl p-6 ${
-            result.undecidable ? "" : result.correct ? "ripple-correct" : "shake-wrong"
+            result.undecidable ? "" : result.correct ? "ripple-correct judge-correct" : "shake-wrong"
           }`}
           style={resultStyle}
         >

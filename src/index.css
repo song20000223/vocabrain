@@ -356,3 +356,53 @@
   }
   .typewriter-caret { animation: caret-blink 1s step-end infinite; }
 }
+
+/* ===== 判定/播放动效（系统关动画时全部不播） ===== */
+@media (prefers-reduced-motion: no-preference) {
+  /* 答对：结果卡片一次轻微 glow pulse（0.4s） */
+  @keyframes judge-glow-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(52,211,153,0.5), inset 0 1px 0 rgba(255,255,255,0.08); }
+    100% { box-shadow: 0 0 26px 8px rgba(52,211,153,0), inset 0 1px 0 rgba(255,255,255,0.08); }
+  }
+  .judge-correct { animation: judge-glow-pulse 0.4s ease-out 1; }
+
+  /* 答对：数字雨短暂变亮（0.4s，比轮次庆祝更轻） */
+  @keyframes rain-bright-flash {
+    0%, 100% { opacity: 0.7; filter: none; }
+    40% { opacity: 1; filter: brightness(1.6) saturate(1.3); }
+  }
+  .rain-bright { animation: rain-bright-flash 0.4s ease-in-out 1; }
+
+  /* 答错：屏幕边缘泛红一闪（0.3s 淡入淡出） */
+  @keyframes wrong-flash {
+    0%   { opacity: 0; }
+    30%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .wrong-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(239,68,68,0.28) 100%);
+    animation: wrong-flash 0.3s ease-in-out 1;
+  }
+
+  /* 听写播放：按钮外圈两层扩散涟漪（1.2s 循环，播放结束即停） */
+  @keyframes speak-ripple {
+    0%   { transform: scale(1); opacity: 0.55; }
+    100% { transform: scale(1.9); opacity: 0; }
+  }
+  .speak-playing { position: relative; }
+  .speak-playing::before,
+  .speak-playing::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 2px solid rgba(96,165,250,0.6);
+    animation: speak-ripple 1.2s ease-out infinite;
+    pointer-events: none;
+  }
+  .speak-playing::after { animation-delay: 0.6s; }
+}

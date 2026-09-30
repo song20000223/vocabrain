@@ -121,9 +121,11 @@ export default function CountWheel({ min = 1, max, value, onChange, unit = "题"
           className="h-full snap-y snap-mandatory overflow-y-scroll [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ paddingTop: ITEM_H * 2, paddingBottom: ITEM_H * 2 }}
         >
-          {items.map((n) => {
+          {items.map((n, idx) => {
             const isActive = n === active;
-            const dist = Math.abs(items.indexOf(n) - items.indexOf(active));
+            // 只对可视区域（前后各 3 格）算距离渐变，远处直接最暗，避免长列表滚动卡顿
+            const dist = Math.abs(idx - items.indexOf(active));
+            const near = dist <= 3;
             return (
               <li key={n} className="snap-center">
                 <button
@@ -133,9 +135,18 @@ export default function CountWheel({ min = 1, max, value, onChange, unit = "题"
                   style={{
                     height: ITEM_H,
                     fontSize: isActive ? 22 : 14,
-                    color: isActive ? "#bfdbfe" : dist === 1 ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.18)",
+                    // 选中项放大 1.2 倍 + 蓝色辉光；刻度向选中项渐变亮
+                    transform: isActive ? "scale(1.2)" : "scale(1)",
+                    color: isActive
+                      ? "#bfdbfe"
+                      : near
+                        ? `rgba(255,255,255,${dist === 1 ? 0.45 : dist === 2 ? 0.3 : 0.22})`
+                        : "rgba(255,255,255,0.16)",
                     fontWeight: isActive ? 600 : 400,
-                    textShadow: isActive ? "0 0 14px rgba(96,165,250,0.5)" : "none",
+                    textShadow: isActive
+                      ? "0 0 16px rgba(96,165,250,0.65), 0 0 4px rgba(147,197,253,0.8)"
+                      : "none",
+                    filter: isActive ? "drop-shadow(0 0 8px rgba(96,165,250,0.35))" : "none",
                   }}
                 >
                   {n}

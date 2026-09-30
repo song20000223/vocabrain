@@ -215,6 +215,24 @@ with sync_playwright() as p:
     d2 = dl2.value; d2.save_as("/tmp/e2e2.csv")
     ok("导出不包含软删词", "abandon" not in open("/tmp/e2e2.csv", encoding="utf-8-sig").read())
 
+    # ---- 判定动效：听写答错瞬间出现红闪遮罩（本地即时判分，提交后立即抓 DOM） ----
+    page.goto(BASE + "/test", wait_until="networkidle")
+    page.click("button:has-text('听写')"); page.wait_for_timeout(300)
+    # 确保「排除已测」为关（前面段落残留状态不定，读持久化值判断，不盲 toggle）
+    if page.evaluate("() => (JSON.parse(localStorage.getItem('vocab_test_options')||'{}').excludeTested ?? true)"):
+        page.locator("text=排除已测").first.click(); page.wait_for_timeout(300)
+    num = page.locator("input[aria-label='抽取数量']")
+    num.click(); num.press("Control+a"); num.press_sequentially("1"); num.blur(); page.wait_for_timeout(300)
+    page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(700)
+    page.locator("button.glow-btn", has_text="开始听写").click(); page.wait_for_timeout(700)
+    page.locator("textarea").first.press_sequentially("天气真好")
+    page.locator("button", has_text="提交答案").click()
+    flashed = page.evaluate("() => !!document.querySelector('.wrong-flash')")
+    ok("答错屏幕红闪遮罩出现", flashed)
+    ok("答对 glow/声波样式已注入", page.evaluate("() => [...document.styleSheets].some(s=>{try{return [...s.cssRules].some(r=>r.cssText.includes('judge-glow-pulse')&&[...s.cssRules].some(x=>x.cssText.includes('speak-ripple')))}catch(e){return false}})"))
+    # 还原数量为 3，避免影响本地后续手动使用
+    page.wait_for_timeout(600)
+
     b.close()
 
 fails = [n for n,c in PASS if not c]
