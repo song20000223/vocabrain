@@ -25,6 +25,7 @@ import {
   isChapter,
   addToWrongBook,
   markTestedInRound,
+  bumpWrongStreak,
   roundStats,
   resetProgress,
   selectWords,
@@ -43,6 +44,7 @@ const OPTIONS_KEY = "vocab_test_options";
 interface SavedOptions {
   excludeTested: boolean;
   excludeMastered: boolean;
+  preferWrong: boolean;
   ordered: boolean;
   typeFilter: EntryType | "all";
   bookId: string;
@@ -76,12 +78,13 @@ export default function TestPage() {
   const [ordered, setOrdered] = useState(saved?.ordered ?? true);
   const [excludeTested, setExcludeTested] = useState(saved?.excludeTested ?? true);
   const [excludeMastered, setExcludeMastered] = useState(saved?.excludeMastered ?? false);
+  const [preferWrong, setPreferWrong] = useState(saved?.preferWrong ?? false);
 
   // 条件选项持久化（词书/类型/顺序/排除项）
   useEffect(() => {
-    const o: SavedOptions = { excludeTested, excludeMastered, ordered, typeFilter, bookId, count };
+    const o: SavedOptions = { excludeTested, excludeMastered, preferWrong, ordered, typeFilter, bookId, count };
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(o));
-  }, [excludeTested, excludeMastered, ordered, typeFilter, bookId, count]);
+  }, [excludeTested, excludeMastered, preferWrong, ordered, typeFilter, bookId, count]);
   // 预览：跳过预览的选择持久化
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "1",
@@ -127,6 +130,14 @@ export default function TestPage() {
   // 测试进行状态
   const [queue, setQueue] = useState<QuizWord[] | null>(null);
 
+  /** 「只重测错题」：从回顾里抽出答错项，直接开新一轮（不改错题本） */
+  const retryWrongFromReview = () => {
+    if (!lastReview) return;
+    const wrongIds = lastReview.filter((i) => !i.correct && i.id).map((i) => i.id!);
+    if (wrongIds.length === 0) return;
+    startWithIds(wrongIds); // 新一轮结束后 onReview 会重新填充回顾区
+  };
+
   const refresh = () => {
     setWords(getWords());
     setBooks(getBooks());
@@ -154,6 +165,7 @@ export default function TestPage() {
     rangeEnd: rangeEnd.trim() ? parseInt(rangeEnd, 10) : undefined,
     excludeTested,
     excludeMastered,
+    preferWrong,
     count,
     order: ordered ? "sequential" : "random",
   });
@@ -174,8 +186,10 @@ export default function TestPage() {
     setPreviewOpen(false);
   };
 
-  /** 听写错误：进错题本（source="dictation"），不计入测验轮次进度 */
-  const handleDictWrong = (word: QuizWord, answer: string) => {
+  /** 听写判分：更新错词连错计数；答错进错题本（source="dictation"），不计入测验轮次进度 */
+  const handleDictJudged = (word: QuizWord, answer: string, correct: boolean) => {
+    bumpWrongStreak(word.id, correct);
+    if (correct) return;
     const full = words.find((w) => w.id === word.id);
     addToWrongBook(
       full ?? {
@@ -187,6 +201,7 @@ export default function TestPage() {
         testedRounds: 0,
         lastTestedAt: null,
         excluded: false,
+        wrongStreak: 0,
       },
       answer,
       "听写错误",
@@ -237,6 +252,7 @@ export default function TestPage() {
   const handleJudged = (word: QuizWord, answer: string, result: QuizJudgeResult) => {
     if (result.undecidable) return; // 无法判定：不计轮次、不进错题本
     markTestedInRound(word.id, direction);
+    bumpWrongStreak(word.id, result.correct);
     if (!result.correct) {
       const full = words.find((w) => w.id === word.id);
       addToWrongBook(
@@ -249,6 +265,7 @@ export default function TestPage() {
           testedRounds: 0,
           lastTestedAt: null,
           excluded: false,
+          wrongStreak: 0,
         },
         answer,
         result.comment,
@@ -277,7 +294,8 @@ export default function TestPage() {
     return (
       <DictationSession
         queue={dictQueue}
-        onWrong={handleDictWrong}
+        onJudged={handleDictJudged}
+        onRetryWrong={(ws) => setDictQueue(ws)}
         exitText="退出听写"
         onExit={() => setDictQueue(null)}
         onFinish={() => {
@@ -352,12 +370,22 @@ export default function TestPage() {
         <div className="glass-card flex flex-col items-center gap-3 rounded-2xl px-5 py-4">
           <p className="text-xs tracking-[0.2em] text-white/35">本轮回顾</p>
           <SessionReview items={lastReview} />
-          <button
-            onClick={() => setLastReview(null)}
-            className="text-xs tracking-wide text-white/30 hover:text-white/60"
-          >
-            收起回顾
-          </button>
+          <div className="flex items-center gap-4">
+            {lastReview.some((i) => !i.correct) && (
+              <button
+                onClick={retryWrongFromReview}
+                className="ghost-btn min-h-[40px] px-5 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+              >
+                只重测错题（{lastReview.filter((i) => !i.correct).length} 个）
+              </button>
+            )}
+            <button
+              onClick={() => setLastReview(null)}
+              className="text-xs tracking-wide text-white/30 hover:text-white/60"
+            >
+              收起回顾
+            </button>
+          </div>
         </div>
       )}
       {exportOpen && lastSessionIds && (
@@ -602,6 +630,7 @@ export default function TestPage() {
             [
               { v: excludeTested, set: setExcludeTested, label: "排除已测" },
               { v: excludeMastered, set: setExcludeMastered, label: "排除已掌握" },
+              { v: preferWrong, set: setPreferWrong, label: "优先错词" },
             ] as const
           ).map((o) => (
             <button

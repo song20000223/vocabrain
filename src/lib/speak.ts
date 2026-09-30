@@ -55,7 +55,17 @@ function ensureVoices() {
   if (!pullVoices()) scheduleRetry();
 }
 
-export function speak(text: string, lang = "en-GB"): SpeakResult {
+/**
+ * @param text 要朗读的文本
+ * @param lang 目标语音（默认 en-GB）
+ * @param opts.rate 语速（默认 0.92；慢速重播传 0.6）
+ * @param opts.onEnd 播放结束/被打断时回调（声波动画停止用）
+ */
+export function speak(
+  text: string,
+  lang = "en-GB",
+  opts: { rate?: number; onEnd?: () => void } = {},
+): SpeakResult {
   if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") {
     return { ok: false, voice: "none" };
   }
@@ -67,7 +77,11 @@ export function speak(text: string, lang = "en-GB"): SpeakResult {
 
   const utter = new SpeechSynthesisUtterance(t);
   utter.lang = lang;
-  utter.rate = 0.92;
+  utter.rate = opts.rate ?? 0.92;
+  if (opts.onEnd) {
+    utter.onend = opts.onEnd;
+    utter.onerror = opts.onEnd;
+  }
 
   const exact = cachedVoices.find((v) => v.lang === lang);
   const loose = cachedVoices.find((v) => v.lang.startsWith(lang.split("-")[0]));

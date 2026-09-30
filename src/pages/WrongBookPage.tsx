@@ -10,6 +10,7 @@ import {
   addToWrongBook,
   markCorrected,
   markTestedInRound,
+  bumpWrongStreak,
   formatMeanings,
   type WrongItem,
 } from "@/lib/store";
@@ -53,7 +54,10 @@ export default function WrongBookPage() {
     setReviewedCount((n) => n + 1);
     // 计入全库进度：错题对应词库里的单词（按单词文本匹配）
     const libWord = getWords().find((w) => w.word.toLowerCase() === word.word.toLowerCase());
-    if (libWord) markTestedInRound(libWord.id);
+    if (libWord) {
+      markTestedInRound(libWord.id);
+      bumpWrongStreak(libWord.id, result.correct);
+    }
 
     if (!result.correct) {
       addToWrongBook(
@@ -68,6 +72,7 @@ export default function WrongBookPage() {
           testedRounds: 0,
           lastTestedAt: null,
           excluded: false,
+          wrongStreak: 0,
         },
         answer,
         result.comment,

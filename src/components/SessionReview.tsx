@@ -3,6 +3,8 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export interface ReviewItem {
+  /** 词库 id（可能找不到对应词：快照场景），「只重测错题」用 */
+  id?: string;
   word: string;
   answer: string;
   correct: boolean;

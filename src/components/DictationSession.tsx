@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Volume2, CheckCircle2, XCircle, Flag } from "lucide-react";
+import { Volume2, Turtle, CheckCircle2, XCircle, Flag } from "lucide-react";
 import { formatMeanings } from "@/lib/store";
 import { speak } from "@/lib/speak";
 import { matchDictation } from "@/lib/quickJudge";
@@ -8,9 +8,11 @@ import { celebrateRain, type QuizWord } from "./QuizSession";
 
 interface Props {
   queue: QuizWord[];
-  /** 听写错误时回调（进错题本，source="dictation"） */
-  onWrong: (word: QuizWord, answer: string) => void;
+  /** 每题判分回调（对/错都会调；答错由父级负责进错题本） */
+  onJudged: (word: QuizWord, answer: string, correct: boolean) => void;
   onFinish?: () => void;
+  /** 「只重测错题」：把本轮答错的词重新组一轮 */
+  onRetryWrong?: (wrongWords: QuizWord[]) => void;
   exitText?: string;
   onExit?: () => void;
 }
@@ -19,7 +21,7 @@ interface Props {
  * 听写模式：播放英文发音 → 手写中文义项。
  * 判定走 matchDictation（本地，忽略大小写/空格/标点，任一义项命中即过），不调 AI。
  */
-export default function DictationSession({ queue, onWrong, onFinish, exitText, onExit }: Props) {
+export default function DictationSession({ queue, onJudged, onFinish, onRetryWrong, exitText, onExit }: Props) {
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [phase, setPhase] = useState<"answer" | "result">("answer");
@@ -32,6 +34,10 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
 
   const play = useCallback(() => {
     if (current) speak(current.word);
+  }, [current]);
+
+  const playSlow = useCallback(() => {
+    if (current) speak(current.word, "en-GB", { rate: 0.6 });
   }, [current]);
 
   // 每题自动播放一遍
@@ -52,6 +58,14 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
           共 {total} 个 · 对 {correctCount} 个 · 错 {total - correctCount} 个（已进错题本）
         </p>
         {reviewItems.length > 0 && <SessionReview items={reviewItems} />}
+        {onRetryWrong && results.some((r) => !r) && (
+          <button
+            onClick={() => onRetryWrong(queue.filter((_, i) => results[i] === false))}
+            className="ghost-btn min-h-[44px] px-6 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+          >
+            只重测错题（{results.filter((r) => !r).length} 个）
+          </button>
+        )}
         <div className="flex gap-3">
           {onExit && (
             <button onClick={onExit} className="ghost-btn min-h-[44px] px-6 text-sm tracking-wide">
@@ -76,13 +90,14 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
     setReviewItems((arr) => [
       ...arr,
       {
+        id: current.id,
         word: current.word,
         answer: answer.trim(),
         correct: ok,
         standardMeaning: current.meanings.flatMap((m) => m.definitions).join("；") || current.word,
       },
     ]);
-    if (!ok) onWrong(current, answer.trim());
+    onJudged(current, answer.trim(), ok);
     setPhase("result");
   };
 
@@ -121,13 +136,23 @@ export default function DictationSession({ queue, onWrong, onFinish, exitText, o
 
       {/* 播放区：不显示单词本身 */}
       <div className="glass-card flex flex-col items-center gap-4 rounded-3xl p-10">
-        <button
-          onClick={play}
-          aria-label="重听发音"
-          className="glow-btn flex h-16 w-16 items-center justify-center !rounded-full"
-        >
-          <Volume2 className="h-7 w-7" />
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={play}
+            aria-label="重听发音"
+            className="glow-btn flex h-16 w-16 items-center justify-center !rounded-full"
+          >
+            <Volume2 className="h-7 w-7" />
+          </button>
+          <button
+            onClick={playSlow}
+            aria-label="慢速重听"
+            className="ghost-btn flex h-11 w-11 items-center justify-center !rounded-full text-white/60 hover:!border-blue-300/40 hover:!text-blue-200"
+            title="慢速重听（0.6x）"
+          >
+            <Turtle className="h-5 w-5" />
+          </button>
+        </div>
         <p className="text-xs tracking-wide text-white/35">听发音，写出中文义项（任一义项命中即算对）</p>
       </div>
 

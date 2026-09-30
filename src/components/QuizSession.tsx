@@ -204,7 +204,7 @@ export default function QuizSession({
         comment: correct ? "拼写正确！" : `正确拼写：${current.word}`,
       };
       setResult(res);
-      setReviewItems((arr) => [...arr, { word: current.word, answer: ans, correct, standardMeaning: current.word }]);
+      setReviewItems((arr) => [...arr, { id: current.id, word: current.word, answer: ans, correct, standardMeaning: current.word }]);
       judgedRef.current(current, ans, res);
       if (correct) correctRef.current?.(current);
       else {
@@ -255,7 +255,7 @@ export default function QuizSession({
         }
       }
       setResult(res);
-      setReviewItems((arr) => [...arr, { word: current.word, answer: ans, correct: res.correct, standardMeaning: res.standardMeaning }]);
+      setReviewItems((arr) => [...arr, { id: current.id, word: current.word, answer: ans, correct: res.correct, standardMeaning: res.standardMeaning }]);
       judgedRef.current(current, ans, res);
       if (res.correct) correctRef.current?.(current);
     } catch (e) {
@@ -275,7 +275,7 @@ export default function QuizSession({
     };
     setForgot(true);
     setResult(res);
-    setReviewItems((arr) => [...arr, { word: current.word, answer: "（忘记了）", correct: false, standardMeaning: standard }]);
+    setReviewItems((arr) => [...arr, { id: current.id, word: current.word, answer: "（忘记了）", correct: false, standardMeaning: standard }]);
     judgedRef.current(current, "（忘记了）", res);
   }, [current, result, isReverse]);
 

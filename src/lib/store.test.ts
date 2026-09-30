@@ -72,3 +72,92 @@ describe("matchDictation 听写判分", () => {
     expect(matchDictation("香蕉", defs)).toBe(false);
   });
 });
+
+// ---------- wrongStreak / preferWrong（需要 localStorage，挂内存 mock） ----------
+class MemStorage {
+  private m = new Map<string, string>();
+  get length() {
+    return this.m.size;
+  }
+  key(i: number) {
+    return [...this.m.keys()][i] ?? null;
+  }
+  getItem(k: string) {
+    return this.m.has(k) ? this.m.get(k)! : null;
+  }
+  setItem(k: string, v: string) {
+    this.m.set(k, String(v));
+  }
+  removeItem(k: string) {
+    this.m.delete(k);
+  }
+  clear() {
+    this.m.clear();
+  }
+}
+(globalThis as unknown as { localStorage: MemStorage }).localStorage = new MemStorage();
+// node 环境无 window：store 的 notify 会 dispatchEvent，这里给个空 stub
+(globalThis as unknown as { window: { dispatchEvent: () => boolean } }).window = {
+  dispatchEvent: () => true,
+};
+
+const { selectWords, bumpWrongStreak, readAllWords, addWord } = await import("./store");
+
+function seedThree(): { a: string; b: string; c: string } {
+  localStorage.clear();
+  const a = addWord("apple", "n.", ["苹果"])!.id;
+  const b = addWord("banana", "n.", ["香蕉"])!.id;
+  const c = addWord("cherry", "n.", ["樱桃"])!.id;
+  return { a, b, c };
+}
+
+describe("bumpWrongStreak 连续答错计数", () => {
+  it("答错 +1，答对 -1，最低 0", () => {
+    const { a } = seedThree();
+    bumpWrongStreak(a, true); // 0 - 1 → 0
+    expect(readAllWords().find((w) => w.id === a)!.wrongStreak).toBe(0);
+    bumpWrongStreak(a, false);
+    bumpWrongStreak(a, false);
+    expect(readAllWords().find((w) => w.id === a)!.wrongStreak).toBe(2);
+    bumpWrongStreak(a, true);
+    expect(readAllWords().find((w) => w.id === a)!.wrongStreak).toBe(1);
+  });
+});
+
+describe("selectWords preferWrong 优先抽错词", () => {
+  it("关闭时按顺序抽，不区分错词", () => {
+    const { c } = seedThree();
+    bumpWrongStreak(c, false);
+    const r = selectWords({ bookId: "all", type: "all", count: 2, order: "sequential" });
+    expect(r.entryIds).toHaveLength(2);
+    expect(r.entryIds).not.toContain(c); // 顺序抽前两个，错词 c 在第三
+  });
+
+  it("开启时错词优先入选", () => {
+    const { c } = seedThree();
+    bumpWrongStreak(c, false);
+    const r = selectWords({
+      bookId: "all",
+      type: "all",
+      count: 2,
+      order: "sequential",
+      preferWrong: true,
+    });
+    expect(r.entryIds).toContain(c);
+    expect(r.entryIds).toHaveLength(2);
+  });
+
+  it("错词不足时用普通池补足", () => {
+    const { c } = seedThree();
+    bumpWrongStreak(c, false);
+    const r = selectWords({
+      bookId: "all",
+      type: "all",
+      count: 3,
+      order: "sequential",
+      preferWrong: true,
+    });
+    expect(r.entryIds).toHaveLength(3);
+    expect(r.entryIds[0]).toBe(c);
+  });
+});

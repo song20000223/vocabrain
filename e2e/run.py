@@ -61,7 +61,7 @@ with sync_playwright() as p:
     page.locator("button", has_text="添加").last.click(); page.wait_for_timeout(400)
     page.locator("select").first.select_option(label="↳ Unit 1")
     page.locator("textarea").first.press_sequentially("chamber\tn. 腔, 室; 议院\ncanyon n. 峡谷", delay=20)
-    page.locator("button", has_text="导入").last.click(); page.wait_for_timeout(600)
+    page.locator("section", has_text="批量导入").locator("button", has_text="导入").click(); page.wait_for_timeout(600)
     words = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))")
     mine = [w for w in words if w["word"] in ("abandon","chamber","canyon","take into account")]
     ok("单词+词组+导入共 4 条", len(mine)==4, f"{len(mine)}")
@@ -125,6 +125,13 @@ with sync_playwright() as p:
     wc = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words')).find(w=>w.word==='canyon')")
     ok("测试更新 testedRounds", wc["testedRounds"]>=1)
 
+    # ---- 只重测错题：quiz 答完回设置页，回顾区按钮 → 新一轮 ----
+    # answer_loop 最后一题点击后 onFinish 已触发，此时在设置页、lastReview 已填充
+    ok("回顾区「只重测错题」按钮出现", "只重测错题" in page.locator("body").inner_text())
+    page.locator("button", has_text="只重测错题").click(); page.wait_for_timeout(900)
+    ok("重测错题进入新一轮", page.locator("textarea").count() >= 1)
+    page.locator("button", has_text="退出测试").click(); page.wait_for_timeout(500)
+
     # ---- 中途退出重抽：已测词不再出现（excludeTested 默认勾） ----
     page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
     # 全部 3 词都已测过（answer_loop 答了 3 题）→ 预览应 0 命中
@@ -157,6 +164,19 @@ with sync_playwright() as p:
     after = {w["word"]: w["testedRounds"] for w in page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))") if w["word"] in ("abandon","chamber","canyon")}
     ok("听写不动 testedRounds", before==after)
     ok("「导出本次结果」出现", "导出本次结果" in page.locator("body").inner_text())
+
+    # ---- wrongStreak：quiz 答错 canyon + 听写全错 → 三者都 ≥1 ----
+    streaks = {w["word"]: w.get("wrongStreak", 0) for w in page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))") if w["word"] in ("abandon","chamber","canyon")}
+    ok("答错累计 wrongStreak", all(v >= 1 for v in streaks.values()), str(streaks))
+
+    # ---- 优先错词开关：存在 + 持久化 ----
+    page.goto(BASE + "/test", wait_until="networkidle")
+    ok("「优先错词」开关出现", "优先错词" in page.locator("body").inner_text())
+    page.locator("text=优先错词").first.click(); page.wait_for_timeout(300)
+    opts3 = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_test_options'))")
+    ok("优先错词持久化 preferWrong=true", opts3.get("preferWrong") == True)
+    page.locator("text=优先错词").first.click(); page.wait_for_timeout(300)  # 还原关闭
+
 
     # ---- 导出（父书含章节；全不勾置灰；勾选后导出） ----
     page.goto(BASE + "/words", wait_until="networkidle")

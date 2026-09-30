@@ -30,6 +30,8 @@ export interface WordItem {
   testedRounds: number; // 累计被测次数
   lastTestedAt: number | null;
   excluded: boolean; // 标记“不再测”
+  /** 连续答错次数：答对 -1（最低 0），答错 +1。旧数据缺省补 0。供「优先抽错词」使用 */
+  wrongStreak: number;
 }
 
 export interface BookItem {
@@ -254,6 +256,7 @@ interface LegacyWord {
   deleted?: boolean;
   testedRounds?: number;
   lastTestedAt?: number | null;
+  wrongStreak?: number;
   excluded?: boolean;
 }
 
@@ -277,6 +280,7 @@ function migrateWord(raw: LegacyWord): WordItem {
     testedRounds: raw.testedRounds ?? 0,
     lastTestedAt: raw.lastTestedAt ?? null,
     excluded: raw.excluded ?? false,
+    wrongStreak: raw.wrongStreak ?? 0,
   };
 }
 
@@ -360,6 +364,7 @@ export function readAllWords(): WordItem[] {
           testedRounds: 0,
           lastTestedAt: null,
           excluded: false,
+          wrongStreak: 0,
         });
     }
     localStorage.setItem(WORDS_KEY, JSON.stringify(seeded));
@@ -425,6 +430,7 @@ export function addWord(
     testedRounds: 0,
     lastTestedAt: null,
     excluded: false,
+    wrongStreak: 0,
   };
   saveWords([item, ...words]);
   return item;
@@ -630,6 +636,7 @@ export interface SelectionCriteria {
   includeDescendants?: boolean; // 默认 true：选词书层时含其全部章节；章节无后代，不受影响
   excludeTested?: boolean; // testedRounds > 0（历史累计）
   excludeMastered?: boolean; // mastered 或 excluded
+  preferWrong?: boolean; // 优先抽 wrongStreak > 0 的词（默认关）
   count: number;
   order: "sequential" | "random";
 }
@@ -677,16 +684,28 @@ export function selectWords(criteria: SelectionCriteria): SelectResult {
     a.bookId === b.bookId ? a.orderInBook - b.orderInBook : a.bookId.localeCompare(b.bookId),
   );
   const matchedCount = pool.length;
-  let picked: WordItem[];
-  if (criteria.order === "random") {
-    const shuffled = [...pool];
-    for (let i = shuffled.length - 1; i > 0; i--) {
+  const count = Math.max(0, criteria.count);
+
+  const shuffle = (arr: WordItem[]) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      [a[i], a[j]] = [a[j], a[i]];
     }
-    picked = shuffled.slice(0, Math.max(0, criteria.count));
+    return a;
+  };
+
+  let picked: WordItem[];
+  if (criteria.preferWrong) {
+    // 优先抽错词：wrongStreak > 0 的先入选（内部乱序），不足再用普通池按原顺序/乱序补足
+    const wrong = shuffle(pool.filter((w) => (w.wrongStreak ?? 0) > 0));
+    const rest = pool.filter((w) => (w.wrongStreak ?? 0) === 0);
+    const restOrdered = criteria.order === "random" ? shuffle(rest) : rest;
+    picked = [...wrong, ...restOrdered].slice(0, count);
+  } else if (criteria.order === "random") {
+    picked = shuffle(pool).slice(0, count);
   } else {
-    picked = pool.slice(0, Math.max(0, criteria.count));
+    picked = pool.slice(0, count);
   }
   return { entryIds: picked.map((w) => w.id), matchedCount, rangeIgnored };
 }
@@ -807,6 +826,18 @@ export function markTestedInRound(id: string, dir: Direction = "en2zh"): void {
     saveProgress(dir, p);
   }
   markWordTested(id);
+}
+
+/**
+ * 更新连续答错计数：答对 -1（最低 0），答错 +1。
+ * 所有判分场景（普通测试、听写、错题本复习）都应调用。
+ */
+export function bumpWrongStreak(id: string, correct: boolean): void {
+  const words = readAllWords();
+  const w = words.find((it) => it.id === id);
+  if (!w) return;
+  w.wrongStreak = Math.max(0, (w.wrongStreak ?? 0) + (correct ? -1 : 1));
+  saveWords(words);
 }
 
 // ---------- 错题本 ----------
