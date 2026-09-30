@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Play,
   RotateCcw,
@@ -34,6 +34,24 @@ import {
 } from "@/lib/store";
 
 const SKIP_PREVIEW_KEY = "vocab_skip_preview";
+const OPTIONS_KEY = "vocab_test_options";
+
+interface SavedOptions {
+  excludeTested: boolean;
+  excludeMastered: boolean;
+  ordered: boolean;
+  typeFilter: EntryType | "all";
+  bookId: string;
+}
+
+function loadOptions(): SavedOptions | null {
+  try {
+    const raw = localStorage.getItem(OPTIONS_KEY);
+    return raw ? (JSON.parse(raw) as SavedOptions) : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function TestPage() {
   const [words, setWords] = useState<WordItem[]>([]);
@@ -44,14 +62,21 @@ export default function TestPage() {
 
   // ---------- 条件面板 ----------
   const [direction, setDirection] = useState<Direction>("en2zh");
-  const [bookId, setBookId] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<EntryType | "all">("all");
+  const saved = useMemo(loadOptions, []);
+  const [bookId, setBookId] = useState<string>(saved?.bookId ?? "all");
+  const [typeFilter, setTypeFilter] = useState<EntryType | "all">(saved?.typeFilter ?? "all");
   const [rangeStart, setRangeStart] = useState("");
   const [rangeEnd, setRangeEnd] = useState("");
   const [count, setCount] = useState(10);
-  const [ordered, setOrdered] = useState(true);
-  const [excludeTested, setExcludeTested] = useState(false);
-  const [excludeMastered, setExcludeMastered] = useState(false);
+  const [ordered, setOrdered] = useState(saved?.ordered ?? true);
+  const [excludeTested, setExcludeTested] = useState(saved?.excludeTested ?? false);
+  const [excludeMastered, setExcludeMastered] = useState(saved?.excludeMastered ?? false);
+
+  // 条件选项持久化（词书/类型/顺序/排除项）
+  useEffect(() => {
+    const o: SavedOptions = { excludeTested, excludeMastered, ordered, typeFilter, bookId };
+    localStorage.setItem(OPTIONS_KEY, JSON.stringify(o));
+  }, [excludeTested, excludeMastered, ordered, typeFilter, bookId]);
   // 预览：跳过预览的选择持久化
   const [skipPreview, setSkipPreview] = useState(
     () => localStorage.getItem(SKIP_PREVIEW_KEY) === "1",
@@ -61,6 +86,17 @@ export default function TestPage() {
   const [previewMeta, setPreviewMeta] = useState<{ matched: number; rangeIgnored: boolean } | null>(
     null,
   );
+
+  // 从单词页手动勾选带过来的快照：?ids=a,b,c → 直接开考
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const ids = searchParams.get("ids");
+    if (!ids) return;
+    const list = ids.split(",").filter(Boolean);
+    const picked = getWordsByIds(list);
+    if (picked.length > 0) setQueue(picked);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 测试进行状态
   const [queue, setQueue] = useState<QuizWord[] | null>(null);
@@ -113,15 +149,30 @@ export default function TestPage() {
 
   const handleStart = () => {
     const r = doSelect();
+    // matchedCount = 0：显示空态预览，不允许开始
+    setPreviewIds(r.entryIds);
+    setPreviewMeta({ matched: r.matchedCount, rangeIgnored: r.rangeIgnored });
+    setPreviewOpen(r.matchedCount > 0 && r.entryIds.length <= 30 ? false : false);
     if (r.entryIds.length === 0) return;
     if (skipPreview) {
       startWithIds(r.entryIds);
       return;
     }
-    setPreviewIds(r.entryIds);
-    setPreviewMeta({ matched: r.matchedCount, rangeIgnored: r.rangeIgnored });
-    setPreviewOpen(false); // 默认折叠成摘要
   };
+
+  // ---------- 范围校验 ----------
+  const rangeError = useMemo(() => {
+    if (isParentSelected && bookId !== "all") return null; // 置灰时另有提示
+    const s = rangeStart.trim() ? parseInt(rangeStart, 10) : null;
+    const e = rangeEnd.trim() ? parseInt(rangeEnd, 10) : null;
+    if (s !== null && e !== null && s > e) return "起始序号不能大于结束序号";
+    // 超出该书最大序号时提示（仅叶子/单书时校验）
+    if (bookId !== "all" && !isParentSelected) {
+      const max = words.reduce((m, w) => (w.bookId === bookId ? Math.max(m, w.orderInBook) : m), 0);
+      if (s !== null && s > max) return `该章节共 ${max} 个，起始序号超出范围`;
+    }
+    return null;
+  }, [rangeStart, rangeEnd, bookId, isParentSelected, words]);
 
   const toggleSkipPreview = () => {
     setSkipPreview((v) => {
@@ -386,6 +437,9 @@ export default function TestPage() {
               父节点按子章节细化，请选具体章节使用范围
             </p>
           )}
+          {rangeError && (
+            <p className="mt-2 text-xs tracking-wide text-red-300/80">{rangeError}</p>
+          )}
         </div>
 
         {/* 类型筛选 */}
@@ -474,45 +528,54 @@ export default function TestPage() {
           </div>
         </div>
 
-        {/* 结果预览（默认折叠成摘要） */}
+        {/* 结果预览（默认折叠成摘要；0 命中显示空态） */}
         {previewIds && previewMeta && (
           <div className="mt-5 rounded-xl border border-blue-300/20 bg-blue-400/5 p-4">
-            <button
-              onClick={() => setPreviewOpen(!previewOpen)}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <span className="text-sm tracking-wide text-blue-100">
-                {previewMeta.rangeIgnored
-                  ? `命中 ${previewMeta.matched} 个（含全部章节），将抽 ${Math.min(count, previewMeta.matched)} 个`
-                  : `范围命中 ${previewMeta.matched} 个，将抽 ${Math.min(count, previewMeta.matched)} 个`}
-              </span>
-              {previewOpen ? (
-                <ChevronUp className="h-4 w-4 text-blue-200/60" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-blue-200/60" />
-              )}
-            </button>
-            {previewOpen && (
-              <ul className="mt-3 max-h-64 divide-y divide-white/5 overflow-y-auto">
-                {previewWords.map((w) => (
-                  <li key={w.id} className="flex items-baseline gap-2 py-2 text-sm">
-                    <span className="shrink-0 font-mono text-[10px] text-white/30">
-                      {bookNameOf(w.bookId)} #{w.orderInBook}
-                    </span>
-                    <span className="shrink-0 font-mono text-white">{w.word}</span>
-                    <span className="min-w-0 truncate text-white/45">
-                      {formatMeanings(w.meanings).join("　") || "（无释义）"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+            {previewMeta.matched === 0 ? (
+              <p className="text-sm tracking-wide text-white/45">
+                无匹配单词，请调整条件（如取消排除项、放宽范围）
+              </p>
+            ) : (
+              <>
+                <button
+                  onClick={() => setPreviewOpen(!previewOpen)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <span className="text-sm tracking-wide text-blue-100">
+                    {previewMeta.rangeIgnored
+                      ? `命中 ${previewMeta.matched} 个（含全部章节），将抽 ${Math.min(count, previewMeta.matched)} 个`
+                      : `范围命中 ${previewMeta.matched} 个，将抽 ${Math.min(count, previewMeta.matched)} 个`}
+                  </span>
+                  {previewOpen ? (
+                    <ChevronUp className="h-4 w-4 text-blue-200/60" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-blue-200/60" />
+                  )}
+                </button>
+                {previewOpen && (
+                  <ul className="mt-3 max-h-64 divide-y divide-white/5 overflow-y-auto">
+                    {previewWords.map((w) => (
+                      <li key={w.id} className="flex items-baseline gap-2 py-2 text-sm">
+                        <span className="shrink-0 font-mono text-[10px] text-white/30">
+                          {bookNameOf(w.bookId)} #{w.orderInBook}
+                        </span>
+                        <span className="shrink-0 font-mono text-white">{w.word}</span>
+                        <span className="min-w-0 truncate text-white/45">
+                          {formatMeanings(w.meanings).join("　") || "（无释义）"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
             )}
           </div>
         )}
 
         <button
-          onClick={() => (previewIds ? startWithIds(previewIds) : handleStart())}
-          className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.08em]"
+          onClick={() => (previewIds && previewIds.length > 0 ? startWithIds(previewIds) : handleStart())}
+          disabled={!!rangeError || (previewMeta !== null && previewMeta.matched === 0)}
+          className="glow-btn mt-6 min-h-[52px] w-full rounded-full text-sm font-medium tracking-[0.08em] disabled:opacity-35"
         >
           <Play className="h-4 w-4" /> 开始测试
         </button>
