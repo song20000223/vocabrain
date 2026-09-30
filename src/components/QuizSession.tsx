@@ -23,6 +23,8 @@ export interface QuizWord {
 
 export interface QuizJudgeResult {
   correct: boolean;
+  /** 无法判定：词库无释义且本地/降级判分无法比对。不计对错、不进错题本、不动 testedRounds */
+  undecidable?: boolean;
   standardMeaning: string;
   comment: string;
 }
@@ -211,12 +213,21 @@ export default function QuizSession({
       if (cached) {
         res = await cached;
       } else if (!hasBackend) {
-        // 纯前端模式：只有本地严格匹配，判不出即判错
-        res = quickLocalJudge(ans, current.meanings) ?? {
-          correct: false,
-          standardMeaning: formatMeanings(current.meanings).join("；") || current.word,
-          comment: "纯前端模式：未命中词库义项，按错处理（AI 判分未启用）",
-        };
+        // 纯前端模式：词库无释义 → 无法判定（不进错题本）；有释义 → 严格匹配判对错
+        if (current.meanings.length === 0) {
+          res = {
+            correct: false,
+            undecidable: true,
+            standardMeaning: current.word,
+            comment: "本地模式无法判定，请手动核对标准释义",
+          };
+        } else {
+          res = quickLocalJudge(ans, current.meanings) ?? {
+            correct: false,
+            standardMeaning: formatMeanings(current.meanings).join("；"),
+            comment: "纯前端模式：未命中词库义项，按错处理（AI 判分未启用）",
+          };
+        }
       } else {
         try {
           res = quickLocalJudge(ans, current.meanings) ?? (await callJudge(current.word, ans, current.meanings));
@@ -256,9 +267,11 @@ export default function QuizSession({
   if (!current) return null;
 
   const resultStyle = result
-    ? result.correct
-      ? { borderColor: "rgba(52,211,153,0.3)" }
-      : { borderColor: "rgba(248,113,113,0.3)" }
+    ? result.undecidable
+      ? { borderColor: "rgba(251,191,36,0.3)" }
+      : result.correct
+        ? { borderColor: "rgba(52,211,153,0.3)" }
+        : { borderColor: "rgba(248,113,113,0.3)" }
     : undefined;
 
   return (
@@ -353,22 +366,28 @@ export default function QuizSession({
       {result && (
         <div
           className={`glass-card result-in rounded-2xl p-6 ${
-            result.correct ? "ripple-correct" : "shake-wrong"
+            result.undecidable ? "" : result.correct ? "ripple-correct" : "shake-wrong"
           }`}
           style={resultStyle}
         >
           <div className="flex items-center gap-2">
-            {result.correct ? (
+            {result.undecidable ? (
+              <Zap className="h-5 w-5 text-amber-300" />
+            ) : result.correct ? (
               <CheckCircle2 className="h-5 w-5 text-emerald-300" />
             ) : (
               <XCircle className="h-5 w-5 text-red-300" />
             )}
             <span
               className={`font-medium tracking-wide ${
-                result.correct ? "text-emerald-200" : "text-red-200"
+                result.undecidable
+                  ? "text-amber-200"
+                  : result.correct
+                    ? "text-emerald-200"
+                    : "text-red-200"
               }`}
             >
-              {result.correct ? "回答正确" : "回答错误"}
+              {result.undecidable ? "无法判定" : result.correct ? "回答正确" : "回答错误"}
             </span>
           </div>
 

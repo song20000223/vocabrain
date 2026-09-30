@@ -232,6 +232,7 @@ export default function TestPage() {
   // ---------- 判分回调 ----------
 
   const handleJudged = (word: QuizWord, answer: string, result: QuizJudgeResult) => {
+    if (result.undecidable) return; // 无法判定：不计轮次、不进错题本
     markTestedInRound(word.id, direction);
     if (!result.correct) {
       const full = words.find((w) => w.id === word.id);

@@ -49,6 +49,7 @@ export default function WrongBookPage() {
 
   /** 复习答错时累加错误次数、更新全库进度 */
   const handleJudged = (word: QuizWord, answer: string, result: QuizJudgeResult) => {
+    if (result.undecidable) return; // 无法判定：不计复习统计、不进错题本
     setReviewedCount((n) => n + 1);
     // 计入全库进度：错题对应词库里的单词（按单词文本匹配）
     const libWord = getWords().find((w) => w.word.toLowerCase() === word.word.toLowerCase());
