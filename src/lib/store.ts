@@ -453,8 +453,8 @@ const POS_PREFIX_RE = new RegExp(`^\\s*(${POS_TOKEN}(?:\\s*[&/]?\\s*${POS_TOKEN}
 // 纯英文单词（允许连字符、撇号）
 const WORD_RE = /^[A-Za-z][A-Za-z\-']*$/;
 
-/** 解析"词性 释义"部分：去掉词性前缀，义项按 ；; 、 切分，去掉句末句号 */
-function parsePosAndDefs(rest: string): { pos: string; defs: string[] } {
+/** 解析"词性 释义"部分：去掉词性前缀，义项按 ；; 、,， 切分，去掉句末句号 */
+export function parsePosAndDefs(rest: string): { pos: string; defs: string[] } {
   let pos = "";
   let body = rest;
   const m = body.match(POS_PREFIX_RE);
