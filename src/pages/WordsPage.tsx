@@ -337,6 +337,10 @@ export default function WordsPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<10 | 15 | 20>(15);
   const [jumpText, setJumpText] = useState("");
+  // 章节管理块展开状态（记忆）
+  const [chapterPanelOpen, setChapterPanelOpen] = useState(
+    () => localStorage.getItem("vocab_chapter_panel") === "1",
+  );
 
   const navigate = useNavigate();
 
@@ -957,6 +961,19 @@ export default function WordsPage() {
                     ` · 章节共 ${openBookChapters.reduce((s, c) => s + bookWordCount(c.id), 0)} 个`}
                 </p>
               </div>
+              {openBookTotal > 0 && !selecting && (
+                <button
+                  onClick={() => {
+                    const ids = openBookWords.map((w) => w.id);
+                    if (ids.length > 0)
+                      navigate(`/test?mode=dictation&ids=${ids.join(",")}`);
+                  }}
+                  title="一键听写当前页"
+                  className="ghost-btn min-h-[40px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+                >
+                  <Volume2 className="mr-1 inline h-3.5 w-3.5" /> 听写本页
+                </button>
+              )}
               {openBookTotal > 0 && (
                 <button
                   onClick={() => (selecting ? exitSelecting() : setSelecting(true))}
@@ -1113,10 +1130,17 @@ export default function WordsPage() {
               </div>
             )}
 
-            {/* 章节管理：仅词书（非章节）显示；默认收起，把高度让给单词列表 */}
+            {/* 章节管理：仅词书（非章节）显示；默认收起，把高度让给单词列表；展开状态记忆 */}
             {!openBookIsChapter && (
-              <details className="mt-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5">
-                <summary className="cursor-pointer select-none font-mono text-[10px] uppercase tracking-widest text-white/30 hover:text-white/50">
+              <details
+                className="mt-3 rounded-xl border border-white/8 bg-white/[0.02] px-4 py-2.5"
+                open={chapterPanelOpen}
+                onToggle={(e) => {
+                  const open = (e.target as HTMLDetailsElement).open;
+                  setChapterPanelOpen(open);
+                  localStorage.setItem("vocab_chapter_panel", open ? "1" : "0");
+                }}
+              >                <summary className="cursor-pointer select-none font-mono text-[10px] uppercase tracking-widest text-white/30 hover:text-white/50">
                   章节管理（共 {openBookChapters.length} 个）▾
                 </summary>
                 <div className="pt-3">
