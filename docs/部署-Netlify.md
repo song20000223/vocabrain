@@ -3,7 +3,8 @@
 目标架构：前端静态部署到 Netlify，后端（AI 判词/查词）独立部署到 Render，
 两端通过 `VITE_API_URL` 环境变量连接。不配后端也能跑（纯前端模式，AI 功能降级）。
 
-本地开发不受影响：`npm run dev` 起 Vite，内置 Hono 开发服务器，无需任何配置。
+本地开发不受影响：`pnpm install` 后 `pnpm dev` 起 Vite，内置 Hono 开发服务器，无需任何配置。
+（项目包管理器为 pnpm，Node 20+ 用 `corepack enable` 即可；npm 命令亦可用，但锁定文件以 pnpm-lock.yaml 为准。）
 
 ---
 

@@ -21,3 +21,4 @@ build/
 coverage/
 .nyc_output/
 # Logs
+package-lock.json
