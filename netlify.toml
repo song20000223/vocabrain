@@ -1,12 +1,22 @@
-# Netlify 部署配置（纯前端模式或接独立后端均可）
-# 后端地址：Site configuration → Environment variables → VITE_API_URL
-# 不配 VITE_API_URL → 纯前端模式（AI 查词/判词降级，其余功能完整）
+# Netlify 部署配置（前端静态 + Functions 承载 AI 判词，同域名无 CORS）
+# 环境变量：DEEPSEEK_API_KEY（Site configuration → Environment variables）
+# 注意：不要配 VITE_PURE=1（会强制前端走降级模式，跳过 AI）
 
 [build]
-  command = "npx vite build"
+  command = "pnpm run build:vercel"
   publish = "dist/public"
 
-# SPA 路由回退
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# API 路由进函数（在前，status 200 = 重写不跳转，地址栏保持 /api/*）
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA 回退（在后）
 [[redirects]]
   from = "/*"
   to = "/index.html"

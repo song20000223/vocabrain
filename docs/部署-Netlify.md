@@ -55,37 +55,44 @@ render.com → 用 GitHub 账号登录（授权后 Render 能直接看到你的�
 
 ---
 
-## 第二部分：前端部署（Netlify）
+## 第二部分：Netlify 一体化部署（前端 + Functions，推荐）
+
+前后端同域名，无 CORS，零成本。`netlify.toml` 已内置全部配置。
 
 ### 1. 导入仓库
 
 netlify.com → 用 GitHub 登录 → **Add new site** → **Import an existing project** → 选仓库。
+Build command 和 publish 目录由 `netlify.toml` 指定（`pnpm run build:vercel` / `dist/public`），不用手填。
 
-### 2. 构建配置（netlify.toml 已内置，通常自动识别）
-
-- Build command：`npx vite build`
-- Publish directory：`dist/public`
-
-### 3. 配环境变量
+### 2. 配环境变量
 
 **Site configuration → Environment variables → Add a variable**：
 
-| Key | Value |
-|---|---|
-| `VITE_API_URL` | `https://<服务名>.onrender.com`（上一步拿到的，**不带尾斜杠**） |
+| Key | Value | 说明 |
+|---|---|---|
+| `DEEPSEEK_API_KEY` | sk- 开头的 key | AI 判词/查词必需 |
 
-不配 `VITE_API_URL` 也能部署——产物自动进入纯前端模式（AI 查词不启用，
-测验判分降级为本地严格匹配，其余功能完整）。
+**不要配 `VITE_PURE=1`**（会强制前端走纯前端降级模式，AI 被跳过）。
+之前纯前端部署时如果加过这个变量，删掉并重新部署。
 
-### 4. 触发部署
+### 3. 函数超时调优（重要）
 
-保存环境变量后 **必须重新部署一次**（Vite 环境变量是构建期注入的）：
-Deploys → Trigger deploy → Deploy site。
+DeepSeek 判分响应 5–6 秒，Netlify 免费档函数默认 10 秒超时可能压线：
+**Site configuration → Functions → 把超时调到最大（26 秒）**。
+前端另有 8 秒超时兜底——超时自动降级本地判分并提示一次，不会傻等。
 
-### 5. 回填 CORS
+### 4. 部署后验证
 
-拿到 Netlify 域名（如 `https://vocabrain.netlify.app`）后，
-回 Render 把 `ALLOWED_ORIGINS` 补成这个域名（如果创建时没填）。
+- `https://<站点>.netlify.app/api/health` → `{"ok":true,...}`
+- `https://<站点>.netlify.app/api/trpc/ping?batch=1&input={"0":{"json":null}}` → 返回 ok 的 JSON
+- 首页正常加载；直接刷新 `/words` 不 404
+- 加一个词 → 测试页做一次判分 → 评语是 AI 生成的自然语言（不是「本地严格匹配」字样），即 Functions 链路通
+
+---
+
+## 第二部分（备选）：Netlify 纯前端 + Render 独立后端
+
+仅当不想用 Netlify Functions 时参考：前端部署 Netlify（配 `VITE_PURE=1` 为纯前端，或配 `VITE_API_URL` 指向 Render 后端），后端按第一部分部署 Render 并回填 `ALLOWED_ORIGINS`。**VITE_API_URL 不带尾斜杠**；改环境变量后必须 Trigger deploy 重新构建。
 
 ---
 

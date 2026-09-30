@@ -114,13 +114,20 @@ export default function QuizSession({
     return aiDefs[current.word] ?? "";
   }, [current, customMeanings, aiDefs]);
 
+  // AI 判分请求 8 秒超时兜底：Netlify 函数免费档 10s 上限，DeepSeek 慢响应时
+  // 不傻等——超时即走本地判分降级（submit 的 catch 分支处理）。
   const callJudge = useCallback(
     (word: string, ans: string, meanings: MeaningGroup[]) =>
-      client.judge.mutate({
-        word,
-        answer: ans,
-        meanings: meanings.length > 0 ? meanings : undefined,
-      }),
+      Promise.race([
+        client.judge.mutate({
+          word,
+          answer: ans,
+          meanings: meanings.length > 0 ? meanings : undefined,
+        }),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error("AI 判分超时")), 8000),
+        ),
+      ]),
     [client],
   );
 
