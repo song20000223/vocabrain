@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Trash2, Eraser, Play, Volume2, Search, Link2, StickyNote, X } from "lucide-react";
 import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
 import WordRow from "@/components/WordRow";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   getWrongBook,
@@ -54,6 +55,7 @@ export default function WrongBookPage() {
   // 搜索 + 详情弹窗
   const [query, setQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
   useEscapeClose(!!detailId, () => setDetailId(null));
 
   const refresh = () => setItems(getWrongBook());
@@ -163,12 +165,7 @@ export default function WrongBookPage() {
         </div>
         {items.length > 0 && (
           <button
-            onClick={() => {
-              if (window.confirm("确定清空错题本吗？")) {
-                clearWrongBook();
-                refresh();
-              }
-            }}
+            onClick={() => setClearConfirm(true)}
             className="ghost-btn min-h-[44px] shrink-0 px-5 text-sm tracking-wide hover:!border-red-400/40 hover:!text-red-300"
           >
             <Eraser className="h-4 w-4" /> 清空
@@ -311,6 +308,22 @@ export default function WrongBookPage() {
         </ul>
       )}
 
+      {/* 清空确认 */}
+      {clearConfirm && (
+        <ConfirmDialog
+          title="清空错题本？"
+          desc={`共 ${items.length} 条错题记录将全部删除，不影响词库里的单词。`}
+          confirmText="清空"
+          danger
+          onConfirm={() => {
+            clearWrongBook();
+            refresh();
+            setClearConfirm(false);
+          }}
+          onCancel={() => setClearConfirm(false)}
+        />
+      )}
+
       {/* 详情弹窗 */}
       {detail && (
         <div
@@ -372,16 +385,25 @@ export default function WrongBookPage() {
               />
             </div>
 
-            <button
-              onClick={() => {
-                removeFromWrongBook(detail.id);
-                setDetailId(null);
-                refresh();
-              }}
-              className="mt-4 flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-red-300/25 text-sm tracking-wide text-red-200/80 transition-colors hover:border-red-300/50 hover:text-red-200"
-            >
-              <Trash2 className="h-4 w-4" /> 删除此错题
-            </button>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => navigate(`/test?ids=${encodeURIComponent(detail.id)}`)}
+                aria-label={`重测 ${detail.word}`}
+                className="glow-btn flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-full text-sm tracking-wide"
+              >
+                <Play className="h-4 w-4" /> 重测此词
+              </button>
+              <button
+                onClick={() => {
+                  removeFromWrongBook(detail.id);
+                  setDetailId(null);
+                  refresh();
+                }}
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-full border border-red-300/25 text-sm tracking-wide text-red-200/80 transition-colors hover:border-red-300/50 hover:text-red-200"
+              >
+                <Trash2 className="h-4 w-4" /> 删除此错题
+              </button>
+            </div>
           </div>
         </div>
       )}

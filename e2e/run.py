@@ -234,6 +234,8 @@ with sync_playwright() as p:
     page.locator("button", has_text="↳ Unit 1").first.click(); page.wait_for_timeout(300)
     page.get_by_label("勾选 abandon").click(); page.wait_for_timeout(200)
     page.get_by_role("button", name="删除", exact=True).click(); page.wait_for_timeout(400)  # 工具栏删除
+    # 自定义确认弹窗：确认删除
+    page.locator("div[role='alertdialog']").locator("button", has_text="删除").click(); page.wait_for_timeout(400)
     memos2 = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_memos'))")
     ok("软删后笔记关联保留", memos2[0]["relatedWordIds"]==[w1["id"]])
     page.goto(BASE + "/memos", wait_until="networkidle")
@@ -352,6 +354,7 @@ with sync_playwright() as p:
         page.locator("button", has_text="下一页").first.click(); page.wait_for_timeout(300)
     page.get_by_label("勾选 crack").click(); page.wait_for_timeout(200)
     page.get_by_role("button", name="删除", exact=True).click(); page.wait_for_timeout(400)
+    page.locator("div[role='alertdialog']").locator("button", has_text="删除").click(); page.wait_for_timeout(400)  # 确认弹窗
     page.locator("button[aria-label='关闭']").first.click(); page.wait_for_timeout(400)
     page.locator("button:has-text(\"点开 →\")").filter(has_text="我的词组").first.click(); page.wait_for_timeout(400)
     page.get_by_label("crack down 的词族").click(); page.wait_for_timeout(300)
@@ -507,7 +510,35 @@ with sync_playwright() as p:
     # 复习/听写按钮保留
     ok("UI 复习+听写按钮保留", "开始复习错题" in page.locator("body").inner_text() and "听写错题" in page.locator("body").inner_text())
 
-    # 断点断言：768px（2 列）、1024px（3 列）
+    # ---- 第二批①④：详情弹窗重测此词 + 清空错题确认弹窗 ----
+    page.locator("ul.grid li button").first.click(); page.wait_for_timeout(400)
+    dlg = page.locator("div.fixed.inset-0").last
+    retest_word = dlg.locator("span.font-mono").first.inner_text()
+    ok("B2 详情弹窗含重测此词", "重测此词" in dlg.inner_text())
+    dlg.locator("button", has_text="重测此词").click(); page.wait_for_timeout(900)
+    # /test?ids= 旧错题 id 在词库找不到 → 落到设置页并提示；说明按钮跳转生效
+    ok("B2 重测此词跳转测试页", "/test" in page.url, page.url)
+    page.goto(BASE + "/wrong-book", wait_until="networkidle"); page.wait_for_timeout(400)
+    # 清空错题：不再弹原生 confirm，而是自定义确认弹窗（× / ESC / 点外部）
+    page.locator("button", has_text="清空").first.click(); page.wait_for_timeout(300)
+    cdlg = page.locator("div[role='alertdialog']")
+    ok("B2 清空错题弹自定义确认", cdlg.count() == 1 and "清空" in cdlg.inner_text())
+    page.keyboard.press("Escape"); page.wait_for_timeout(300)
+    ok("B2 确认弹窗 ESC 可关", page.locator("div[role='alertdialog']").count() == 0)
+    # ESC 关闭后错题仍在
+    ok("B2 ESC 取消后错题保留", page.locator("ul.grid li").count() == 3, str(page.locator("ul.grid li").count()))
+    # 真清空：点确认按钮
+    page.locator("button", has_text="清空").first.click(); page.wait_for_timeout(300)
+    page.locator("div[role='alertdialog']").locator("button", has_text="清空").click(); page.wait_for_timeout(400)
+    ok("B2 确认后错题清空+空态", "暂无错题" in page.locator("body").inner_text())
+
+    # 断点断言：768px（2 列）、1024px（3 列）。上面清空错题后列表已空，重新造 4 条
+    page.evaluate("""() => {
+      const words = JSON.parse(localStorage.getItem('vocab_words'));
+      const wb = words.slice(0,4).map((w,i)=>({id:w.id,word:w.word,meanings:w.meanings,yourAnswer:'错误答案'+i,comment:'评语'+i,wrongAt:Date.now()-i*3600e3,wrongCount:i+1,corrected:i===3,source:'quiz',entryType:w.type||'word'}));
+      localStorage.setItem('vocab_wrong_book', JSON.stringify(wb));
+    }""")
+    page.goto(BASE + "/wrong-book", wait_until="networkidle"); page.wait_for_timeout(400)
     for vw, expect_cols in [(768, 2), (1024, 3)]:
         page.set_viewport_size({"width": vw, "height": 900}); page.wait_for_timeout(400)
         cols = page.evaluate("""() => {
@@ -530,6 +561,50 @@ with sync_playwright() as p:
     qs = open("src/components/QuizSession.tsx", encoding="utf-8").read()
     ds = open("src/components/DictationSession.tsx", encoding="utf-8").read()
     ok("UI 题卡 max-w-3xl", "max-w-3xl" in qs and "max-w-3xl" in ds and "max-w-xl" not in qs and "max-w-xl" not in ds)
+
+    # ---- 第二批②③：最近删除恢复 + 备份导入平滑刷新 ----
+    page.goto(BASE + "/words", wait_until="networkidle"); page.wait_for_timeout(400)
+    # 造一条软删词（crack 已被 S7 段软删过，但前面 UI 段清了库——现造一条）
+    page.evaluate("""() => {
+      const words = JSON.parse(localStorage.getItem('vocab_words'));
+      if (words.length && !words.some(w => w.deleted)) words[0].deleted = true;
+      localStorage.setItem('vocab_words', JSON.stringify(words));
+    }""")
+    page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
+    page.locator("button", has_text="最近删除").click(); page.wait_for_timeout(400)
+    trash = page.locator("div.fixed.inset-0").last
+    ok("B2 最近删除弹窗打开", "最近删除" in trash.inner_text() and "恢复" in trash.inner_text())
+    trash_word = trash.locator("span.line-through").first.inner_text()
+    trash.locator("button[aria-label^='恢复']").first.click(); page.wait_for_timeout(400)
+    restored = page.evaluate("""(w) => {
+      const words = JSON.parse(localStorage.getItem('vocab_words'));
+      const t = words.find(x => x.word === w);
+      return t ? !t.deleted : null;
+    }""", trash_word)
+    ok("B2 恢复后软删标记清除", restored is True, f"{trash_word}={restored}")
+    page.keyboard.press("Escape"); page.wait_for_timeout(300)
+    # 备份导入：覆盖导入后无 alert（dialog handler 会 accept，记录是否出现过原生弹窗）
+    dlg_seen = []
+    page.on("dialog", lambda d: (dlg_seen.append(d.message), d.accept()))
+    backup = page.evaluate("""() => {
+      const data = {};
+      for (const k of ['vocab_words','vocab_books','vocab_memos','vocab_wrong_book','vocab_progress']) {
+        const v = localStorage.getItem(k);
+        if (v) data[k] = v; // BackupFile.data 是 Record<string,string> 原样存
+      }
+      return JSON.stringify({ app: 'vocabrain', dataVersion: 2, exportedAt: Date.now(), data });
+    }""")
+    import tempfile, os
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+        f.write(backup); tmppath = f.name
+    page.locator("input[type='file']").set_input_files(tmppath); page.wait_for_timeout(500)
+    os.unlink(tmppath)
+    imp = page.locator("div.fixed.inset-0").last
+    ok("B2 导入方式弹窗出现", "选择导入方式" in imp.inner_text(), imp.inner_text()[:40])
+    imp.locator("button", has_text="覆盖导入").click(); page.wait_for_timeout(600)
+    ok("B2 导入后无原生 alert", len(dlg_seen) == 0, str(dlg_seen))
+    ok("B2 导入后应用内 toast", "已覆盖导入" in page.locator("body").inner_text() or "已合并导入" in page.locator("body").inner_text())
+    ok("B2 导入后页面未整页刷新(词书仍在)", "默认词书" in page.locator("body").inner_text())
 
     b.close()
 

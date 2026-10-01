@@ -11,6 +11,7 @@ import {
   type MemoItem,
 } from "@/lib/memo";
 import { getBooks } from "@/lib/store";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { useEscapeClose } from "@/lib/useEscapeClose";
 
 /** 备忘录：搜索 + 标签筛选 + 列表（展开/编辑/删除），与单词双向关联 */
@@ -22,6 +23,7 @@ export default function MemosPage() {
   // 新建/编辑
   const [editing, setEditing] = useState<MemoItem | null>(null); // null=新建草稿未开
   const [draftOpen, setDraftOpen] = useState(false);
+  const [deletingMemo, setDeletingMemo] = useState<{ id: string; title: string } | null>(null);
   useEscapeClose(draftOpen, () => setDraftOpen(false));
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -161,11 +163,7 @@ export default function MemosPage() {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm(`删除笔记「${m.title || "无标题"}」？不影响关联的单词。`)) {
-                        removeMemo(m.id);
-                      }
-                    }}
+                    onClick={() => setDeletingMemo({ id: m.id, title: m.title || "无标题" })}
                     aria-label={`删除笔记 ${m.title}`}
                     className="flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/25 hover:text-red-300"
                   >
@@ -212,6 +210,21 @@ export default function MemosPage() {
             );
           })}
         </ul>
+      )}
+
+      {/* 删除确认 */}
+      {deletingMemo && (
+        <ConfirmDialog
+          title={`删除笔记「${deletingMemo.title}」？`}
+          desc="不影响关联的单词。"
+          confirmText="删除"
+          danger
+          onConfirm={() => {
+            removeMemo(deletingMemo.id);
+            setDeletingMemo(null);
+          }}
+          onCancel={() => setDeletingMemo(null)}
+        />
       )}
 
       {/* 新建/编辑弹窗 */}

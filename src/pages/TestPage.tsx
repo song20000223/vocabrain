@@ -18,6 +18,7 @@ import QuizSession, {
 } from "@/components/QuizSession";
 import DictationSession from "@/components/DictationSession";
 import ExportDialog from "@/components/ExportDialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import CountWheel from "@/components/CountWheel";
 import SessionReview, { type ReviewItem } from "@/components/SessionReview";
 import {
@@ -97,6 +98,7 @@ export default function TestPage() {
   const [previewOpen, setPreviewOpen] = useState(false);
   // 章节弹层：当前为哪本词书选章节
   const [chapterPickerFor, setChapterPickerFor] = useState<string | null>(null);
+  const [resetConfirm, setResetConfirm] = useState(false);
   // 发音设置弹层
   const [voiceOpen, setVoiceOpen] = useState(false);
   useEscapeClose(!!chapterPickerFor, () => setChapterPickerFor(null));
@@ -442,12 +444,7 @@ export default function TestPage() {
             {stats.total}
           </span>
           <button
-            onClick={() => {
-              if (window.confirm("重置全部测试进度？两个方向的轮次记录都会清零。")) {
-                resetProgress();
-                refresh();
-              }
-            }}
+            onClick={() => setResetConfirm(true)}
             className="flex min-h-[36px] items-center gap-1 text-xs tracking-wide text-white/30 transition-colors hover:text-white/70"
           >
             <RotateCcw className="h-3 w-3" /> 重置进度
@@ -767,6 +764,22 @@ export default function TestPage() {
           跳过预览直接开始（记住选择）
         </button>
       </div>
+
+      {/* 重置进度确认 */}
+      {resetConfirm && (
+        <ConfirmDialog
+          title="重置全部测试进度？"
+          desc="两个方向的轮次记录都会清零。"
+          confirmText="重置"
+          danger
+          onConfirm={() => {
+            resetProgress();
+            refresh();
+            setResetConfirm(false);
+          }}
+          onCancel={() => setResetConfirm(false)}
+        />
+      )}
 
       {/* 章节选择弹层 */}
       {chapterPickerFor &&

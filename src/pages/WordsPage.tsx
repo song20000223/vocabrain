@@ -19,6 +19,7 @@ import {
   Volume2,
   StickyNote,
   Play,
+  ArchiveRestore,
 } from "lucide-react";
 import { trpc } from "@/providers/trpc";
 import { speak } from "@/lib/speak";
@@ -29,6 +30,7 @@ import {
   type MemoItem,
 } from "@/lib/memo";
 import ExportDialog from "@/components/ExportDialog";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import WordEditModal from "@/components/WordEditModal";
 import WordRow from "@/components/WordRow";
 import { exportBackup, validateBackup, applyBackup, type BackupFile } from "@/lib/backup";
@@ -56,6 +58,8 @@ import {
   PHRASE_BOOK_ID,
   type WordItem,
   type BookItem,
+  readAllWords,
+  restoreWord,
 } from "@/lib/store";
 
 const POS_OPTIONS = ["n.", "v.", "adj.", "adv.", "prep.", "conj.", "pron.", "num.", "其他"];
@@ -70,6 +74,11 @@ export default function WordsPage() {
   const [defs, setDefs] = useState("");
   const [batchText, setBatchText] = useState("");
   const [tip, setTip] = useState("");
+  const [bookDeleteConfirm, setBookDeleteConfirm] = useState<{ id: string; msg: string } | null>(null);
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
+  // 最近删除（软删恢复入口）
+  const [deletedWords, setDeletedWords] = useState<WordItem[]>([]);
+  const [trashOpen, setTrashOpen] = useState(false);
   // 数据备份导入
   const backupFileRef = useRef<HTMLInputElement>(null);
   const [pendingBackup, setPendingBackup] = useState<BackupFile | null>(null);
@@ -111,6 +120,7 @@ export default function WordsPage() {
   // ESC 关闭弹窗：归入确认（=不归入）、备份导入（=取消）
   useEscapeClose(!!familyConfirm, () => familyConfirm?.proceed(undefined));
   useEscapeClose(!!pendingBackup, () => setPendingBackup(null));
+  useEscapeClose(trashOpen, () => setTrashOpen(false));
   // 分页（词书弹窗内列表）
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<10 | 15 | 20>(15);
@@ -158,6 +168,7 @@ export default function WordsPage() {
   const refresh = () => {
     setWords(getWords());
     setBooks(getBooks());
+    setDeletedWords(readAllWords().filter((w) => w.deleted));
   };
 
   useEffect(() => {
@@ -200,8 +211,8 @@ export default function WordsPage() {
     if (!pendingBackup) return;
     applyBackup(pendingBackup, mode);
     setPendingBackup(null);
-    window.alert(mode === "overwrite" ? "已覆盖导入，即将刷新页面" : "已合并导入，即将刷新页面");
-    window.location.reload();
+    showTip(mode === "overwrite" ? "已覆盖导入，数据已更新" : "已合并导入，数据已更新");
+    refresh(); // store 事件 + 手动刷新，平滑更新不整页 reload
   };
 
   const handleCreateBook = () => {
@@ -238,11 +249,7 @@ export default function WordsPage() {
       : info.totalWords > 0 || info.chapterCount > 0
         ? `删除词书「${info.name}」？${info.chapterCount > 0 ? `其 ${info.chapterCount} 个章节会一并删除，` : ""}共 ${info.totalWords} 个单词会移到「${info.moveToName}」末尾，不会被删除。`
         : `删除空词书「${info.name}」？`;
-    if (window.confirm(msg)) {
-      removeBook(id);
-      setOpenBookId(null);
-      refresh();
-    }
+    setBookDeleteConfirm({ id, msg });
   };
 
   /** 手动勾选 → 用选中单词开始测试（快照经 /test?ids= 传递） */
@@ -442,11 +449,20 @@ export default function WordsPage() {
 
   const batchDelete = () => {
     if (checkedIds.size === 0) return;
-    if (!window.confirm(`确定删除选中的 ${checkedIds.size} 个单词？此操作不可恢复。`)) return;
+    setBatchDeleteConfirm(true);
+  };
+  const restoreFromTrash = (id: string) => {
+    restoreWord(id);
+    showTip("已恢复");
+    refresh();
+  };
+
+  const confirmBatchDelete = () => {
     for (const id of checkedIds) removeWord(id);
-    showTip(`已删除 ${checkedIds.size} 个单词`);
+    showTip(`已删除 ${checkedIds.size} 个单词，可在「最近删除」中恢复`);
     clearChecked();
     refresh();
+    setBatchDeleteConfirm(false);
   };
   const batchExclude = (exclude: boolean) => {
     if (checkedIds.size === 0) return;
@@ -726,6 +742,17 @@ export default function WordsPage() {
             className="ghost-btn min-h-[44px] px-7 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
           >
             <Upload className="h-4 w-4" /> 导入备份
+          </button>
+          <button
+            onClick={() => setTrashOpen(true)}
+            className="ghost-btn min-h-[44px] px-7 text-sm tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+          >
+            <ArchiveRestore className="h-4 w-4" /> 最近删除
+            {deletedWords.length > 0 && (
+              <span className="rounded-full border border-white/15 px-1.5 font-mono text-[10px] text-white/50">
+                {deletedWords.length}
+              </span>
+            )}
           </button>
           <input
             ref={backupFileRef}
@@ -1227,6 +1254,35 @@ export default function WordsPage() {
         />
       )}
 
+      {/* 删除词书确认 */}
+      {bookDeleteConfirm && (
+        <ConfirmDialog
+          title="删除词书"
+          desc={bookDeleteConfirm.msg}
+          confirmText="删除"
+          danger
+          onConfirm={() => {
+            removeBook(bookDeleteConfirm.id);
+            setOpenBookId(null);
+            refresh();
+            setBookDeleteConfirm(null);
+          }}
+          onCancel={() => setBookDeleteConfirm(null)}
+        />
+      )}
+
+      {/* 批量删除确认 */}
+      {batchDeleteConfirm && (
+        <ConfirmDialog
+          title={`删除选中的 ${checkedIds.size} 个单词？`}
+          desc="软删除，可在「最近删除」中恢复。"
+          confirmText="删除"
+          danger
+          onConfirm={confirmBatchDelete}
+          onCancel={() => setBatchDeleteConfirm(false)}
+        />
+      )}
+
       {/* 备份导入方式选择：× / ESC / 点外部 = 取消 */}
       {pendingBackup && (
         <div
@@ -1273,6 +1329,56 @@ export default function WordsPage() {
           </div>
         </div>
       )}
+      {/* 最近删除：软删词恢复入口 */}
+      {trashOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setTrashOpen(false)}
+        >
+          <div
+            className="glass-card relative flex max-h-[80vh] w-full max-w-lg flex-col rounded-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setTrashOpen(false)}
+              aria-label="关闭"
+              className="absolute right-3 top-3 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/40 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h3 className="font-semibold tracking-wide text-white">最近删除（{deletedWords.length}）</h3>
+            <p className="mt-1 text-xs tracking-wide text-white/35">
+              软删除的单词不参与列表/抽选/测试，可在此恢复。
+            </p>
+            {deletedWords.length === 0 ? (
+              <p className="mt-6 text-center text-sm tracking-wide text-white/30">回收站是空的</p>
+            ) : (
+              <ul className="mt-4 flex-1 divide-y divide-white/5 overflow-y-auto">
+                {deletedWords.map((w) => (
+                  <li key={w.id} className="flex items-center gap-3 py-2.5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-mono text-sm text-white/70 line-through decoration-white/30">
+                        {w.word}
+                      </span>
+                      <span className="block truncate text-xs text-white/35">
+                        {formatMeanings(w.meanings).join("　") || "（无释义）"}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => restoreFromTrash(w.id)}
+                      aria-label={`恢复 ${w.word}`}
+                      className="ghost-btn min-h-[36px] shrink-0 px-4 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+                    >
+                      恢复
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 导出弹窗 */}
       {exportScope && (
         <ExportDialog
