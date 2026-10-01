@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Trash2, Eraser, Play, Volume2, Search, Link2, StickyNote, X } from "lucide-react";
 import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
 import WordRow from "@/components/WordRow";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   getWrongBook,
   getWords,
@@ -53,6 +54,7 @@ export default function WrongBookPage() {
   // 搜索 + 详情弹窗
   const [query, setQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  useEscapeClose(!!detailId, () => setDetailId(null));
 
   const refresh = () => setItems(getWrongBook());
 

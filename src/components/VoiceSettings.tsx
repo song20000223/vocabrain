@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Volume2, X } from "lucide-react";
 import { englishVoices, getVoicePref, setVoicePref, speak } from "@/lib/speak";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 
 /**
  * 发音设置：列出系统所有 en-* voice，可试听、单选，偏好存 localStorage。
@@ -10,6 +11,7 @@ import { englishVoices, getVoicePref, setVoicePref, speak } from "@/lib/speak";
 export default function VoiceSettings({ onClose }: { onClose: () => void }) {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [pref, setPref] = useState<string | null>(getVoicePref());
+  useEscapeClose(true, onClose);
 
   const refresh = () => setVoices(englishVoices());
 
@@ -36,8 +38,11 @@ export default function VoiceSettings({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="glass-card flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="glass-card flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between">
           <h3 className="font-semibold tracking-wide text-white">发音设置</h3>
           <button

@@ -28,15 +28,19 @@ export function candidateCore(text: string): string {
 /**
  * 查找可归入的词族。找不到返回 null。
  * @param excludeId 编辑场景排除自身
+ * @param excludeIds 批量导入场景：排除本次正在导入的整批词条（防止匹配到自己）
  */
 export function findFamilyCandidate(
   text: string,
   words: WordItem[],
   excludeId?: string,
+  excludeIds?: Set<string>,
 ): FamilyCandidate | null {
   const core = candidateCore(text);
   if (core.length < 3) return null; // 短核心词不自动识别
-  const pool = words.filter((w) => !w.deleted && w.id !== excludeId);
+  const pool = words.filter(
+    (w) => !w.deleted && w.id !== excludeId && !(excludeIds && excludeIds.has(w.id)),
+  );
   const keyOf = (w: WordItem) => w.familyKey?.toLowerCase();
   const members = pool.filter(
     (w) =>

@@ -11,6 +11,7 @@ import {
   type MemoItem,
 } from "@/lib/memo";
 import { getBooks } from "@/lib/store";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 
 /** 备忘录：搜索 + 标签筛选 + 列表（展开/编辑/删除），与单词双向关联 */
 export default function MemosPage() {
@@ -21,6 +22,7 @@ export default function MemosPage() {
   // 新建/编辑
   const [editing, setEditing] = useState<MemoItem | null>(null); // null=新建草稿未开
   const [draftOpen, setDraftOpen] = useState(false);
+  useEscapeClose(draftOpen, () => setDraftOpen(false));
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -219,7 +221,7 @@ export default function MemosPage() {
           onClick={() => setDraftOpen(false)}
         >
           <div
-            className="glass-card flex w-full max-w-lg flex-col gap-3 rounded-3xl p-6"
+            className="glass-card flex max-h-[85vh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-3xl p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

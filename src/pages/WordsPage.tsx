@@ -32,6 +32,7 @@ import ExportDialog from "@/components/ExportDialog";
 import WordEditModal from "@/components/WordEditModal";
 import WordRow from "@/components/WordRow";
 import { exportBackup, validateBackup, applyBackup, type BackupFile } from "@/lib/backup";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import { findFamilyCandidate, type FamilyCandidate } from "@/lib/family";
 import {
   getWords,
@@ -105,9 +106,11 @@ export default function WordsPage() {
     proceed: (familyKey?: string) => void;
   } | null>(null);
   // 批量导入后的词族汇总（只列前 20 条）
-  const [familyBatch, setFamilyBatch] = useState<{
-    hits: { id: string; text: string; key: string }[];
-  } | null>(null);
+  // 批量导入后的词族提示（可忽略，不强制处理；用户想整理去词库页）
+  const [familyHint, setFamilyHint] = useState<number | null>(null);
+  // ESC 关闭弹窗：归入确认（=不归入）、备份导入（=取消）
+  useEscapeClose(!!familyConfirm, () => familyConfirm?.proceed(undefined));
+  useEscapeClose(!!pendingBackup, () => setPendingBackup(null));
   // 分页（词书弹窗内列表）
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<10 | 15 | 20>(15);
@@ -305,8 +308,9 @@ export default function WordsPage() {
 
   const handleImport = () => {
     if (!batchText.trim()) return;
-    // 导入前收集可归族条目（导入后 words 变了，先算好）
+    // 导入前收集本批次文本行（用于自我匹配排除）
     const lines = batchText.split("\n").map((l) => l.trim()).filter(Boolean);
+    const beforeIds = new Set(getWords().map((w) => w.id));
     const { added, skipped } = importWords(batchText, targetBook);
     setBatchText("");
     showTip(
@@ -315,20 +319,25 @@ export default function WordsPage() {
         : `成功导入/合并 ${added} 条`,
     );
     refresh();
-    // 汇总词族命中：导入后新状态里找（同词文本匹配 id），不逐条弹
+    // 汇总词族命中（可忽略提示，不强制弹窗）：
+    // 排除「本次刚导入的这批词条」自身，防止 atmosphere → atmosphere 匹配到自己
     const fresh = getWords();
+    const batchIds = new Set(fresh.filter((w) => !beforeIds.has(w.id)).map((w) => w.id));
     const hits: { id: string; text: string; key: string }[] = [];
     for (const line of lines) {
       const text = line.split(/[\t,，]/)[0]?.trim() ?? "";
       if (!text) continue;
-      const cand = findFamilyCandidate(text, fresh);
+      const cand = findFamilyCandidate(text, fresh, undefined, batchIds);
       if (!cand || sessionStorage.getItem(`vocab_family_declined_${cand.key}`)) continue;
       const w = fresh.find(
         (x) => x.word.toLowerCase() === text.toLowerCase() && !x.familyKey,
       );
       if (w) hits.push({ id: w.id, text, key: cand.key });
     }
-    if (hits.length > 0) setFamilyBatch({ hits });
+    if (hits.length > 0) {
+      setFamilyHint(hits.length);
+      window.setTimeout(() => setFamilyHint(null), 6000); // 6 秒自动消失，可提前点「知道了」
+    }
   };
 
   // 检索结果（搜单词或释义）
@@ -1092,7 +1101,7 @@ export default function WordsPage() {
                 </summary>
                 <div className="pt-3">
                 {openBookChapters.length > 0 && (
-                  <ul className="mb-3 flex flex-col gap-1.5">
+                  <ul className="mb-3 flex max-h-[40vh] flex-col gap-1.5 overflow-y-auto pr-1">
                     {openBookChapters.map((c) => (
                       <li key={c.id} className="flex items-center gap-2">
                         <button
@@ -1141,10 +1150,23 @@ export default function WordsPage() {
           </div>
         </div>
       )}
-      {/* 词族归入确认（手动添加命中） */}
+      {/* 词族归入确认（手动添加命中）：× / ESC / 点外部 = 不归入 */}
       {familyConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="glass-card w-full max-w-sm rounded-2xl p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => familyConfirm.proceed(undefined)}
+        >
+          <div
+            className="glass-card relative w-full max-w-sm rounded-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => familyConfirm.proceed(undefined)}
+              aria-label="关闭"
+              className="absolute right-3 top-3 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/40 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <h3 className="font-semibold tracking-wide text-white">归入已有词族？</h3>
             <p className="mt-2 text-sm leading-relaxed tracking-wide text-white/45">
               检测到已有相关词族「{familyConfirm.candidate.key}」（含{" "}
@@ -1181,68 +1203,18 @@ export default function WordsPage() {
         </div>
       )}
 
-      {/* 批量导入词族汇总（只列前 20 条，逐条归入/跳过） */}
-      {familyBatch && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="glass-card flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl p-6">
-            <h3 className="font-semibold tracking-wide text-white">
-              有 {familyBatch.hits.length} 条可归入已有词族
-            </h3>
-            <p className="mt-1 text-xs tracking-wide text-white/40">
-              逐条处理；全部处理完或点「完成」关闭。
-            </p>
-            <ul className="mt-4 flex-1 space-y-1.5 overflow-y-auto">
-              {familyBatch.hits.slice(0, 20).map((h) => (
-                <li
-                  key={h.id}
-                  className="flex items-center gap-2 rounded-xl border border-white/8 px-3 py-2"
-                >
-                  <span className="min-w-0 flex-1 truncate font-mono text-sm text-white">
-                    {h.text}
-                  </span>
-                  <span className="shrink-0 font-mono text-[10px] text-blue-200/60">
-                    → {h.key}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setFamilyKey(h.id, h.key);
-                      // 命中但尚无 familyKey 的已有成员（如核心词本身）一并入族
-                      const cand = findFamilyCandidate(h.text, getWords(), h.id);
-                      if (cand) for (const m of cand.members) if (!m.familyKey) setFamilyKey(m.id, h.key);
-                      setFamilyBatch((b) =>
-                        b ? { hits: b.hits.filter((x) => x.id !== h.id) } : b,
-                      );
-                      refresh();
-                    }}
-                    className="min-h-[32px] shrink-0 rounded-full border border-blue-300/25 px-3 text-xs text-blue-200/80 hover:border-blue-300/50"
-                  >
-                    归入
-                  </button>
-                  <button
-                    onClick={() =>
-                      setFamilyBatch((b) =>
-                        b ? { hits: b.hits.filter((x) => x.id !== h.id) } : b,
-                      )
-                    }
-                    className="min-h-[32px] shrink-0 rounded-full px-2 text-xs text-white/35 hover:text-white/60"
-                  >
-                    跳过
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {familyBatch.hits.length > 20 && (
-              <p className="mt-2 text-center font-mono text-[11px] text-white/30">
-                仅显示前 20 条，处理完自动续上
-              </p>
-            )}
-            <button
-              onClick={() => setFamilyBatch(null)}
-              className="glow-btn mt-4 min-h-[40px] rounded-full text-sm tracking-wide"
-            >
-              完成
-            </button>
-          </div>
+      {/* 批量导入后的词族提示：可忽略，不强制弹窗，用户想整理去词库页 */}
+      {familyHint !== null && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/12 bg-[#12161d] px-5 py-3 shadow-xl">
+          <p className="text-sm tracking-wide text-white/70">
+            有 {familyHint} 条与已有词族相关，可在词库页整理
+          </p>
+          <button
+            onClick={() => setFamilyHint(null)}
+            className="shrink-0 rounded-full border border-blue-300/25 px-3 py-1 text-xs text-blue-200/80 hover:border-blue-300/50"
+          >
+            知道了
+          </button>
         </div>
       )}
 
@@ -1255,10 +1227,23 @@ export default function WordsPage() {
         />
       )}
 
-      {/* 备份导入方式选择 */}
+      {/* 备份导入方式选择：× / ESC / 点外部 = 取消 */}
       {pendingBackup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="glass-card w-full max-w-sm rounded-2xl p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPendingBackup(null)}
+        >
+          <div
+            className="glass-card relative w-full max-w-sm rounded-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPendingBackup(null)}
+              aria-label="关闭"
+              className="absolute right-3 top-3 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/40 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <h3 className="font-semibold tracking-wide text-white">选择导入方式</h3>
             <p className="mt-2 text-sm leading-relaxed tracking-wide text-white/45">
               备份导出于{" "}

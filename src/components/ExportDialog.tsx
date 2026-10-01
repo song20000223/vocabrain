@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Download, X } from "lucide-react";
 import type { WordItem } from "@/lib/store";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   DEFAULT_EXPORT_FILTERS,
   buildCsv,
@@ -27,6 +28,7 @@ interface Props {
 export default function ExportDialog({ scopeLabel, scopeName, pool, withTime, onClose }: Props) {
   const [f, setF] = useState<ExportFilters>({ ...DEFAULT_EXPORT_FILTERS });
   const [format, setFormat] = useState<"csv" | "txt">("csv");
+  useEscapeClose(true, onClose);
 
   const filtered = useMemo(() => filterForExport(pool, f), [pool, f]);
   // 全不勾 = 不导出（防误操作）：背记组和类型组各需至少勾一项
@@ -62,7 +64,7 @@ export default function ExportDialog({ scopeLabel, scopeName, pool, withTime, on
       onClick={onClose}
     >
       <div
-        className="glass-card w-full max-w-md rounded-3xl p-6"
+        className="glass-card max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">

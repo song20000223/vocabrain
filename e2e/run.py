@@ -62,9 +62,8 @@ with sync_playwright() as p:
     page.locator("select").first.select_option(label="↳ Unit 1")
     page.locator("textarea").first.press_sequentially("chamber\tn. 腔, 室; 议院\ncanyon n. 峡谷", delay=20)
     page.locator("section", has_text="批量导入").locator("button", has_text="导入").click(); page.wait_for_timeout(600)
-    # 若触发词族汇总弹层（种子词可能命中），先关掉
-    if "可归入已有词族" in page.locator("body").inner_text():
-        page.locator("div.fixed.inset-0").locator("button", has_text="完成").click(); page.wait_for_timeout(300)
+    # 批量导入不再有强制弹窗；chamber/canyon 无词族命中，提示条也不应出现
+    ok("bug① 全新词导入无词族提示条", "与已有词族相关" not in page.locator("body").inner_text())
     words = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words'))")
     mine = [w for w in words if w["word"] in ("abandon","chamber","canyon","take into account")]
     ok("单词+词组+导入共 4 条", len(mine)==4, f"{len(mine)}")
@@ -399,7 +398,74 @@ with sync_playwright() as p:
     ok("bug③ 浮层内容完整可见", "测试笔记标题" in pop.locator("input[placeholder='笔记标题']").input_value())
     page.keyboard.press("Escape"); page.wait_for_timeout(200)
 
-    # ================= UI批：错题本网格/搜索/详情 + 测试页宽度 + 断点 =================
+    # ================= 本批 bug 验收 =================
+    # bug①：批量导入 7 个全新词（atmosphere 等）——不自我匹配、无提示条、无强制弹窗
+    page.goto(BASE + "/words", wait_until="networkidle"); page.wait_for_timeout(300)
+    page.locator("input[placeholder='搜索单词或释义…']").press("Control+a"); page.keyboard.press("Backspace"); page.wait_for_timeout(300)
+    page.locator("textarea").first.fill("atmosphere\tn. 大气；氛围\nhydrosphere\tn. 水圈\nlithosphere\tn. 岩石圈\noxygen\tn. 氧\noxide\tn. 氧化物\nhydrogen\tn. 氢\ncore\tn. 核心")
+    page.locator("section", has_text="批量导入").locator("button", has_text="导入").click(); page.wait_for_timeout(600)
+    body_now = page.locator("body").inner_text()
+    ok("bug① 7 全新词导入不出词族提示条", "与已有词族相关" not in body_now)
+    modal_cnt = page.evaluate("() => [...document.querySelectorAll('div.fixed.inset-0')].filter(e => e.querySelector('.glass-card')).length")
+    ok("bug① 7 全新词导入无强制弹窗", modal_cnt == 0, str(modal_cnt))
+    imported7 = page.evaluate("""() => ['atmosphere','hydrosphere','lithosphere','oxygen','oxide','hydrogen','core']
+      .map(w => JSON.parse(localStorage.getItem('vocab_words')).find(x => x.word === w)).filter(Boolean).length""")
+    ok("bug① 7 词全部入库", imported7 == 7, str(imported7))
+    # bug①：再次导入 atmosphere（已是库中已有词，不在本批）——正常出提示条且只计 1 条（匹配已有词而非自己）
+    page.locator("textarea").first.fill("atmosphere\tn. 大气层")
+    page.locator("section", has_text="批量导入").locator("button", has_text="导入").click(); page.wait_for_timeout(600)
+    body_now = page.locator("body").inner_text()
+    ok("bug① 已有词导入出提示条", "有 1 条与已有词族相关" in body_now, body_now[body_now.find("有 1 条"):body_now.find("有 1 条")+24] if "有 1 条" in body_now else "无提示条")
+    modal_cnt = page.evaluate("() => [...document.querySelectorAll('div.fixed.inset-0')].filter(e => e.querySelector('.glass-card')).length")
+    ok("bug① 提示条无强制弹窗", modal_cnt == 0, str(modal_cnt))
+    page.locator("button", has_text="知道了").click(); page.wait_for_timeout(300)
+    ok("bug① 提示条可手动关闭", "与已有词族相关" not in page.locator("body").inner_text())
+    watmo = page.evaluate("() => JSON.parse(localStorage.getItem('vocab_words')).filter(w=>w.word==='atmosphere').length")
+    ok("bug① atmosphere 合并仍只 1 条", watmo == 1, str(watmo))
+
+    # bug③：章节管理 20 章节——列表内部滚动、新建按钮始终可见、点章节正常跳转、移动端不超屏
+    # （S7 段清过库，这里自建词书 + 20 章节）
+    page.evaluate("""() => {
+      const books = JSON.parse(localStorage.getItem('vocab_books'));
+      books.push({ id: 'ch-stress-book', name: '章节压力测试', parentId: null, createdAt: Date.now() });
+      for (let i = 1; i <= 20; i++) {
+        books.push({ id: 'ch-test-' + i, name: 'Unit ' + i, parentId: 'ch-stress-book', createdAt: Date.now() });
+      }
+      localStorage.setItem('vocab_books', JSON.stringify(books));
+      window.dispatchEvent(new Event('vocab-store-change'));
+    }""")
+    page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
+    page.locator("button:has-text(\"点开 →\")").filter(has_text="章节压力测试").first.click(); page.wait_for_timeout(400)
+    page.evaluate("() => { document.querySelector('details').open = true; }"); page.wait_for_timeout(300)
+    scroll_info = page.evaluate("""() => {
+      const d = document.querySelector('details');
+      const ul = d.querySelector('ul');
+      const btn = [...d.querySelectorAll('button')].find(b => b.textContent.includes('新建章节'));
+      const r = btn.getBoundingClientRect();
+      return { overflow: ul.scrollHeight > ul.clientHeight, ulH: Math.round(ul.clientHeight),
+               btnVisible: r.top >= 0 && r.bottom <= innerHeight, items: ul.querySelectorAll('li').length };
+    }""")
+    ok("bug③ 20 章节列表内部滚动", scroll_info["overflow"] and scroll_info["items"] == 20, str(scroll_info))
+    ok("bug③ 新建章节按钮可视区内", scroll_info["btnVisible"], str(scroll_info))
+    page.locator("details").locator("button", has_text="↳ Unit 20").click(); page.wait_for_timeout(400)
+    ok("bug③ 点章节正常跳转", "Unit 20" in page.locator("div.fixed.inset-0").last.inner_text())
+    # 移动端不超屏
+    page.set_viewport_size({"width":390,"height":844}); page.wait_for_timeout(400)
+    mob = page.evaluate("""() => {
+      const m = document.querySelector('div.fixed.inset-0 > div.glass-card');
+      const r = m.getBoundingClientRect();
+      return { h: Math.round(r.height), vh: innerHeight, fits: r.bottom <= innerHeight + 1 };
+    }""")
+    ok("bug③ 移动端弹窗不超屏", mob["fits"], str(mob))
+    page.locator("button[aria-label='关闭']").first.click(); page.wait_for_timeout(300)
+    page.set_viewport_size({"width":1280,"height":900})
+    # 清理测试章节，恢复现场
+    page.evaluate("""() => {
+      const books = JSON.parse(localStorage.getItem('vocab_books')).filter(b => !String(b.id).startsWith('ch-test-') && b.id !== 'ch-stress-book');
+      localStorage.setItem('vocab_books', JSON.stringify(books));
+    }""")
+
+
     page.goto(BASE + "/words", wait_until="networkidle")
     page.evaluate("localStorage.clear()")
     page.goto(BASE + "/words", wait_until="networkidle"); page.wait_for_timeout(300)

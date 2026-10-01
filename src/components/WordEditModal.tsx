@@ -12,6 +12,7 @@ import {
 } from "@/lib/store";
 import { speak } from "@/lib/speak";
 import { addMemo, getMemosForWord, type MemoItem } from "@/lib/memo";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 
 interface EditGroup {
   pos: string;
@@ -98,6 +99,7 @@ export default function WordEditModal({
     save(currentId);
     onClose();
   };
+  useEscapeClose(true, close);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={close}>

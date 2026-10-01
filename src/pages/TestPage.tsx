@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useEscapeClose } from "@/lib/useEscapeClose";
 import {
   Play,
   RotateCcw,
@@ -8,6 +9,7 @@ import {
   BookOpen,
   CornerDownRight,
   Volume2,
+  X,
 } from "lucide-react";
 import QuizSession, {
   celebrateRain,
@@ -97,6 +99,7 @@ export default function TestPage() {
   const [chapterPickerFor, setChapterPickerFor] = useState<string | null>(null);
   // 发音设置弹层
   const [voiceOpen, setVoiceOpen] = useState(false);
+  useEscapeClose(!!chapterPickerFor, () => setChapterPickerFor(null));
   const [previewIds, setPreviewIds] = useState<string[] | null>(null);
   const [previewMeta, setPreviewMeta] = useState<{
     matched: number;
@@ -772,8 +775,21 @@ export default function TestPage() {
           if (!pb) return null;
           const chapters = getChapters(pb.id);
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-              <div className="glass-card flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl p-6">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+              onClick={() => setChapterPickerFor(null)}
+            >
+              <div
+                className="glass-card relative flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => setChapterPickerFor(null)}
+                  aria-label="关闭"
+                  className="absolute right-3 top-3 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full text-white/40 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
                 <h3 className="font-semibold tracking-wide text-white">{pb.name} · 选择章节</h3>
                 <div className="mt-4 flex-1 space-y-1.5 overflow-y-auto">
                   <button
