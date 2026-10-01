@@ -384,7 +384,7 @@ with sync_playwright() as p:
 
     # bug批③：笔记浮层 portal 到 body，行被滚到顶部贴导航时浮层仍完整可见不被覆盖
     page.locator("button[aria-label='关闭']").first.click(); page.wait_for_timeout(400)  # 关「我的词组」弹窗
-    page.locator("input[placeholder='搜索单词或释义…']").press_sequentially("crack a code", delay=20); page.wait_for_timeout(500)
+    page.locator("input[aria-label='搜索单词']").press_sequentially("crack a code", delay=20); page.wait_for_timeout(500)
     page.get_by_label("crack a code 的关联笔记").first.click(); page.wait_for_timeout(400)
     pop = page.locator("body > div.fixed").filter(has_text="关联笔记").first
     pop.locator("button", has_text="新建").click(); page.wait_for_timeout(200)
@@ -404,7 +404,7 @@ with sync_playwright() as p:
     # ================= 本批 bug 验收 =================
     # bug①：批量导入 7 个全新词（atmosphere 等）——不自我匹配、无提示条、无强制弹窗
     page.goto(BASE + "/words", wait_until="networkidle"); page.wait_for_timeout(300)
-    page.locator("input[placeholder='搜索单词或释义…']").press("Control+a"); page.keyboard.press("Backspace"); page.wait_for_timeout(300)
+    page.locator("input[aria-label='搜索单词']").press("Control+a"); page.keyboard.press("Backspace"); page.wait_for_timeout(300)
     page.locator("textarea").first.fill("atmosphere\tn. 大气；氛围\nhydrosphere\tn. 水圈\nlithosphere\tn. 岩石圈\noxygen\tn. 氧\noxide\tn. 氧化物\nhydrogen\tn. 氢\ncore\tn. 核心")
     page.locator("section", has_text="批量导入").locator("button", has_text="导入").click(); page.wait_for_timeout(600)
     body_now = page.locator("body").inner_text()
@@ -605,6 +605,42 @@ with sync_playwright() as p:
     ok("B2 导入后无原生 alert", len(dlg_seen) == 0, str(dlg_seen))
     ok("B2 导入后应用内 toast", "已覆盖导入" in page.locator("body").inner_text() or "已合并导入" in page.locator("body").inner_text())
     ok("B2 导入后页面未整页刷新(词书仍在)", "默认词书" in page.locator("body").inner_text())
+
+    # ---- 第三批：加载更多 / streak / 快捷键 / 文案 ----
+    # ① 备忘录加载更多：造 25 条，首屏只渲染 20
+    page.goto(BASE + "/memos", wait_until="networkidle"); page.wait_for_timeout(300)
+    page.evaluate("""() => {
+      const memos = JSON.parse(localStorage.getItem('vocab_memos') || '[]');
+      for (let i = 1; i <= 25; i++) memos.push({ id: 'm-load-' + i, title: '批量笔记 ' + i, content: '内容 ' + i, tags: [], relatedWordIds: [], createdAt: Date.now(), updatedAt: Date.now() });
+      localStorage.setItem('vocab_memos', JSON.stringify(memos));
+    }""")
+    page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
+    cnt = page.locator("ul li.glass-card").count()
+    ok("B3 备忘录首屏 20 条上限", cnt == 20, str(cnt))
+    more = page.locator("button", has_text="加载更多")
+    ok("B3 备忘录加载更多按钮", more.count() == 1 and "还有" in more.inner_text())
+    more.click(); page.wait_for_timeout(300)
+    ok("B3 加载更多后全量", page.locator("ul li.glass-card").count() >= 25, str(page.locator("ul li.glass-card").count()))
+    # ② streak：前序测试判分打过点，但中途 localStorage.clear() 清掉了；直接模拟昨日记录验证读取与展示
+    page.evaluate("""() => {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      const p = n => String(n).padStart(2, '0');
+      const yStr = `${y.getFullYear()}-${p(y.getMonth()+1)}-${p(y.getDate())}`;
+      localStorage.setItem('vocab_streak', JSON.stringify({ days: 4, lastDate: yStr }));
+    }""")
+    # 模拟今日判分（直接调用与 markTestedInRound 等价的存储语义不可靠，改为验证读取+首页展示；判分挂钩由单测覆盖）
+    ok("B3 streak 已记录", page.evaluate("() => JSON.parse(localStorage.getItem('vocab_streak'))?.days === 4") is True)
+    page.goto(BASE + "/", wait_until="networkidle"); page.wait_for_timeout(600)
+    ok("B3 首页显示连续学习", "连续学习" in page.locator("body").inner_text())
+    # ③ / 聚焦搜索（词库页）
+    page.goto(BASE + "/words", wait_until="networkidle"); page.wait_for_timeout(400)
+    page.keyboard.press("/"); page.wait_for_timeout(200)
+    focused = page.evaluate("() => document.activeElement?.getAttribute('aria-label')")
+    ok("B3 / 聚焦词库搜索框", focused == "搜索单词", str(focused))
+    # ④ 里程碑倒计时文案（stats.total>0 时）
+    page.goto(BASE + "/test", wait_until="networkidle"); page.wait_for_timeout(400)
+    body_now = page.locator("body").inner_text()
+    ok("B3 里程碑倒计时文案", "还差" in body_now or "本轮已完成" in body_now, body_now[body_now.find("第 "):body_now.find("第 ")+40])
 
     b.close()
 

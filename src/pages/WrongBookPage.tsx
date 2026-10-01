@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Trash2, Eraser, Play, Volume2, Search, Link2, StickyNote, X } from "lucide-react";
 import QuizSession, { celebrateRain, type QuizJudgeResult, type QuizWord } from "@/components/QuizSession";
 import WordRow from "@/components/WordRow";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { useEscapeClose } from "@/lib/useEscapeClose";
+import { useSlashFocus } from "@/lib/useSlashFocus";
 import {
   getWrongBook,
   getWords,
@@ -56,6 +57,10 @@ export default function WrongBookPage() {
   const [query, setQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [clearConfirm, setClearConfirm] = useState(false);
+  // 加载更多：首屏 30 条
+  const [wrongLimit, setWrongLimit] = useState(30);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSlashFocus(searchRef);
   useEscapeClose(!!detailId, () => setDetailId(null));
 
   const refresh = () => setItems(getWrongBook());
@@ -229,9 +234,10 @@ export default function WrongBookPage() {
         <div className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
           <input
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索单词或释义…"
+            placeholder="搜索单词或释义…（按 / 快速聚焦）"
             aria-label="搜索错题"
             className="glass-input min-h-[44px] w-full rounded-full pl-11 pr-10 text-sm tracking-wide transition-shadow focus:shadow-[0_0_0_3px_rgba(147,197,253,0.15)]"
           />
@@ -249,8 +255,9 @@ export default function WrongBookPage() {
 
       {/* 错题网格 */}
       {items.length === 0 ? (
-        <div className="glass-card rounded-2xl p-12 text-center tracking-wide text-white/40">
-          暂无错题，去测试吧。
+        <div className="glass-card rounded-2xl p-12 text-center tracking-wide">
+          <p className="text-white/40">暂无错题，去测试吧。</p>
+          <p className="mt-2 text-xs text-white/25">雨落无痕，全对的日子也值得记住。</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="glass-card rounded-2xl p-12 text-center tracking-wide text-white/40">
@@ -258,7 +265,7 @@ export default function WrongBookPage() {
         </div>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((it) => {
+          {filtered.slice(0, wrongLimit).map((it) => {
             const word = toWordItem(it);
             const memoCount = getMemosForWord(it.id).length;
             return (
@@ -306,6 +313,14 @@ export default function WrongBookPage() {
             );
           })}
         </ul>
+      )}
+      {filtered.length > wrongLimit && (
+        <button
+          onClick={() => setWrongLimit((n) => n + 30)}
+          className="ghost-btn mx-auto mt-2 flex min-h-[40px] px-6 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+        >
+          加载更多（还有 {filtered.length - wrongLimit} 条）
+        </button>
       )}
 
       {/* 清空确认 */}

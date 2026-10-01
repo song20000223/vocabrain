@@ -1,3 +1,4 @@
+import { touchStreak } from "./streak";
 /**
  * 单词学习数据层 —— 全部存储在浏览器 localStorage（仅当前浏览器可用）。
  *
@@ -874,6 +875,7 @@ export function pickNextWord(excludeId?: string, dir: Direction = "en2zh"): Word
 
 /** 把单词记入本轮已测（指定模式和错题复习也要调用），按方向独立 */
 export function markTestedInRound(id: string, dir: Direction = "en2zh"): void {
+  touchStreak(); // 判分即算今日学习，驱动连续天数
   const p = getProgress(dir);
   if (!p.testedInRound.includes(id)) {
     p.testedInRound.push(id);

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { PenLine, BookmarkX, ListPlus, ArrowRight } from "lucide-react";
+import { PenLine, BookmarkX, ListPlus, ArrowRight, Flame } from "lucide-react";
 import { getWords, getWrongBook } from "@/lib/store";
+import { getStreak } from "@/lib/streak";
 
 const SLOGANS = ["Every drop counts.", "Rain falls. Words stay.", "一词一雨，积水成渊。"];
 
@@ -30,6 +31,7 @@ function CountUp({ value }: { value: number }) {
 export default function HomePage() {
   const [wordCount, setWordCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
+  const [streakDays, setStreakDays] = useState(0);
   const [typed, setTyped] = useState("");
 
   // 打字机循环
@@ -69,6 +71,7 @@ export default function HomePage() {
     const refresh = () => {
       setWordCount(getWords().length);
       setWrongCount(getWrongBook().length);
+      setStreakDays(getStreak().days);
     };
     refresh();
     window.addEventListener("vocab-store-change", refresh);
@@ -126,6 +129,16 @@ export default function HomePage() {
             <div className="text-4xl font-light text-blue-200"><CountUp value={wrongCount} /></div>
             <div className="mt-1 text-[11px] uppercase tracking-[0.08em] text-white/35">
               待复习错题
+            </div>
+          </div>
+          <span className="h-10 w-px bg-white/10" />
+          <div className="text-center" aria-label="连续学习天数">
+            <div className="flex items-baseline justify-center gap-1 text-4xl font-light text-amber-200/90">
+              <Flame className="h-5 w-5 translate-y-[-2px] self-center text-amber-300/80" />
+              <CountUp value={streakDays} />
+            </div>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.08em] text-white/35">
+              连续学习{streakDays > 0 ? ` ${streakDays} 天` : ""}
             </div>
           </div>
         </div>

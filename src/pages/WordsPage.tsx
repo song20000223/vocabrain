@@ -35,6 +35,7 @@ import WordEditModal from "@/components/WordEditModal";
 import WordRow from "@/components/WordRow";
 import { exportBackup, validateBackup, applyBackup, type BackupFile } from "@/lib/backup";
 import { useEscapeClose } from "@/lib/useEscapeClose";
+import { useSlashFocus } from "@/lib/useSlashFocus";
 import { findFamilyCandidate, type FamilyCandidate } from "@/lib/family";
 import {
   getWords,
@@ -84,6 +85,8 @@ export default function WordsPage() {
   const [pendingBackup, setPendingBackup] = useState<BackupFile | null>(null);
   // 检索
   const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSlashFocus(searchRef);
   // AI 翻译结果：英文输入 → 释义；中文输入 → 候选英文词（词 → 释义）
   const [aiResult, setAiResult] = useState<{
     source: string;
@@ -505,9 +508,11 @@ export default function WordsPage() {
         <div className="relative mt-4">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
           <input
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索单词或释义…"
+            placeholder="搜索单词或释义…（按 / 快速聚焦）"
+            aria-label="搜索单词"
             className="glass-input min-h-[44px] w-full rounded-xl pl-11 pr-10 tracking-wide"
           />
           {query && (

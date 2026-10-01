@@ -442,6 +442,14 @@ export default function TestPage() {
             </span>
             第 {stats.round} 轮 · 已测 <span className="text-blue-200">{stats.tested}</span> /{" "}
             {stats.total}
+            {stats.total > 0 && stats.total - stats.tested > 0 && (
+              <span className="ml-2 text-xs text-white/30">
+                还差 {stats.total - stats.tested} 个完成本轮
+              </span>
+            )}
+            {stats.total > 0 && stats.tested >= stats.total && (
+              <span className="ml-2 text-xs text-emerald-300/70">本轮已完成</span>
+            )}
           </span>
           <button
             onClick={() => setResetConfirm(true)}

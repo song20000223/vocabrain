@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search, Trash2, Pencil, X, ChevronDown, ChevronUp, Link2 } from "lucide-react";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/memo";
 import { getBooks } from "@/lib/store";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { useSlashFocus } from "@/lib/useSlashFocus";
 import { useEscapeClose } from "@/lib/useEscapeClose";
 
 /** 备忘录：搜索 + 标签筛选 + 列表（展开/编辑/删除），与单词双向关联 */
@@ -24,6 +25,10 @@ export default function MemosPage() {
   const [editing, setEditing] = useState<MemoItem | null>(null); // null=新建草稿未开
   const [draftOpen, setDraftOpen] = useState(false);
   const [deletingMemo, setDeletingMemo] = useState<{ id: string; title: string } | null>(null);
+  // 加载更多：首屏 20 条，避免几百条笔记一次渲染
+  const [memoLimit, setMemoLimit] = useState(20);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useSlashFocus(searchRef);
   useEscapeClose(draftOpen, () => setDraftOpen(false));
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -82,9 +87,11 @@ export default function MemosPage() {
         <div className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
           <input
+            ref={searchRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索标题、正文、标签…"
+            placeholder="搜索标题、正文、标签…（按 / 快速聚焦）"
+            aria-label="搜索笔记"
             className="glass-input min-h-[44px] w-full rounded-xl pl-11 pr-4 tracking-wide"
           />
         </div>
@@ -117,12 +124,15 @@ export default function MemosPage() {
 
       {/* 列表 */}
       {memos.length === 0 ? (
-        <p className="glass-card rounded-2xl p-10 text-center text-sm tracking-wide text-white/35">
-          还没有笔记。点「新建笔记」，或在单词行的笔记按钮上给某个词记一条。
-        </p>
+        <div className="glass-card rounded-2xl p-10 text-center">
+          <p className="text-sm tracking-wide text-white/35">
+            还没有笔记。点「新建笔记」，或在单词行的笔记按钮上给某个词记一条。
+          </p>
+          <p className="mt-2 text-xs tracking-wide text-white/25">好记性不如烂笔头，雨滴也需要落点。</p>
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {memos.map((m) => {
+          {memos.slice(0, memoLimit).map((m) => {
             const related = getRelatedWords(m);
             const open = expandedId === m.id;
             return (
@@ -210,6 +220,14 @@ export default function MemosPage() {
             );
           })}
         </ul>
+      )}
+      {memos.length > memoLimit && (
+        <button
+          onClick={() => setMemoLimit((n) => n + 20)}
+          className="ghost-btn mx-auto mt-2 flex min-h-[40px] px-6 text-xs tracking-wide hover:!border-blue-300/40 hover:!text-blue-200"
+        >
+          加载更多（还有 {memos.length - memoLimit} 条）
+        </button>
       )}
 
       {/* 删除确认 */}
