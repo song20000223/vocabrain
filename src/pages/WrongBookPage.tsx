@@ -56,6 +56,12 @@ export default function WrongBookPage() {
   // 搜索 + 详情弹窗
   const [query, setQuery] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  // 轻提示（重测找不到词等）
+  const [tip, setTip] = useState("");
+  const showTip = (msg: string) => {
+    setTip(msg);
+    window.setTimeout(() => setTip(""), 3500);
+  };
   const [clearConfirm, setClearConfirm] = useState(false);
   // 加载更多：首屏 30 条
   const [wrongLimit, setWrongLimit] = useState(30);
@@ -323,6 +329,13 @@ export default function WrongBookPage() {
         </button>
       )}
 
+      {/* 轻提示 */}
+      {tip && (
+        <div className="fixed bottom-6 left-1/2 z-[230] -translate-x-1/2 rounded-full border border-white/12 bg-[#12161d] px-5 py-3 text-sm tracking-wide text-white/70 shadow-xl">
+          {tip}
+        </div>
+      )}
+
       {/* 清空确认 */}
       {clearConfirm && (
         <ConfirmDialog
@@ -402,7 +415,18 @@ export default function WrongBookPage() {
 
             <div className="mt-4 flex gap-2">
               <button
-                onClick={() => navigate(`/test?ids=${encodeURIComponent(detail.id)}`)}
+                onClick={() => {
+                  // 错题 id 与词库 id 是两套体系（旧数据错题 id 为独立 uid），
+                  // 按 word 文本查词库（多词性组取第一个匹配），查不到说明词已彻底删除
+                  const target = getWords().find(
+                    (w) => w.word.toLowerCase() === detail.word.toLowerCase(),
+                  );
+                  if (!target) {
+                    showTip("该词已不在词库");
+                    return;
+                  }
+                  navigate(`/test?ids=${encodeURIComponent(target.id)}`);
+                }}
                 aria-label={`重测 ${detail.word}`}
                 className="glow-btn flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-full text-sm tracking-wide"
               >

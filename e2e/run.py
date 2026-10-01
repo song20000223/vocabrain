@@ -516,8 +516,24 @@ with sync_playwright() as p:
     retest_word = dlg.locator("span.font-mono").first.inner_text()
     ok("B2 详情弹窗含重测此词", "重测此词" in dlg.inner_text())
     dlg.locator("button", has_text="重测此词").click(); page.wait_for_timeout(900)
-    # /test?ids= 旧错题 id 在词库找不到 → 落到设置页并提示；说明按钮跳转生效
-    ok("B2 重测此词跳转测试页", "/test" in page.url, page.url)
+    # 重测直达：按 word 查词库拿词库 id → /test?ids=<词库id> 直接开考（题卡出现答题输入框）
+    ok("B2 重测此词跳转测试页", "/test?ids=" in page.url, page.url)
+    wid = page.evaluate("() => { const w = JSON.parse(localStorage.getItem('vocab_words')).find(x => x.word === '" + retest_word + "'); return w ? w.id : null; }")
+    ok("B2 重测用词库 id 而非错题 id", wid is not None and f"ids={wid}" in page.url, f"{retest_word} -> {wid}")
+    ok("B2 重测直接开考(题卡出现)", page.locator("textarea").count() >= 1, str(page.locator("textarea").count()))
+    # 词已彻底删除的错题 → toast 提示不跳转
+    page.goto(BASE + "/wrong-book", wait_until="networkidle"); page.wait_for_timeout(400)
+    page.evaluate("""() => {
+      const wb = JSON.parse(localStorage.getItem('vocab_wrong_book'));
+      wb.push({ id: 'ghost-wrong', word: 'ghostwordzzz', meanings: [{ pos: 'n.', definitions: ['幽灵词'] }], yourAnswer: 'x', comment: 'y', wrongAt: Date.now(), wrongCount: 1, corrected: false, source: 'quiz', entryType: 'word' });
+      localStorage.setItem('vocab_wrong_book', JSON.stringify(wb));
+    }""")
+    page.reload(wait_until="networkidle"); page.wait_for_timeout(400)
+    page.locator("ul.grid li button", has_text="ghostwordzzz").click(); page.wait_for_timeout(400)
+    page.locator("div.fixed.inset-0").last.locator("button", has_text="重测此词").click(); page.wait_for_timeout(500)
+    ok("B2 词已删 toast 提示不跳转", "/wrong-book" in page.url and "该词已不在词库" in page.locator("body").inner_text(), page.url)
+    # 清理幽灵错题
+    page.evaluate("() => { const wb = JSON.parse(localStorage.getItem('vocab_wrong_book')).filter(x => x.id !== 'ghost-wrong'); localStorage.setItem('vocab_wrong_book', JSON.stringify(wb)); }")
     page.goto(BASE + "/wrong-book", wait_until="networkidle"); page.wait_for_timeout(400)
     # 清空错题：不再弹原生 confirm，而是自定义确认弹窗（× / ESC / 点外部）
     page.locator("button", has_text="清空").first.click(); page.wait_for_timeout(300)
